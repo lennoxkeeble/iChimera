@@ -28,6 +28,7 @@ All the dependencies are located in the <em>dependencies.jl</em> file. Simply ru
 ## Authors ##
 
 - Lennox Keeble
+- Alejandro Cardenas-Avendano 
 
 ## References ##
 [1] Schmidt, W. Celestial mechanics in Kerr spacetime. [arXiv:gr-qc/0202090](https://arxiv.org/abs/gr-qc/0202090)
