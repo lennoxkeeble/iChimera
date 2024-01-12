@@ -208,7 +208,7 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64,
     E, L, Q = ConstantsOfMotion.ELQ(a, p, e, θi)   # dimensionless constants
 
     # initial conditions for Kerr geodesic trajectory
-    ri = ra; θi = π/2; τspan = (0.0, τmax); params = [a, M];
+    ri = ra; τspan = (0.0, τmax); params = [a, M];
 
     ics = KerrGeodesics.boundKerr_ics(a, M, m, E, L, ri, θi, KerrMetric.g_tt,  KerrMetric.g_tϕ,  KerrMetric.g_rr, KerrMetric.g_θθ, KerrMetric.g_ϕϕ);
     prob = SecondOrderODEProblem(KerrGeodesics.geodesicEq!, ics..., τspan, params);
