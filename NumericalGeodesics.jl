@@ -67,10 +67,10 @@ function compute_geodesic(g_tt::Function, g_tϕ::Function, g_rr::Function, g_θ�
     # save trajectory- rows are: τ, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, columns are component values at different times
     # save data
     mkpath(data_path)
-    open(data_path * "numerical_ODE_sol_E_$(round(E; digits=3))_L_$(round(L; digits=3))_a_$(a)_tol_$(reltol).txt", "w") do io
+    open(data_path * "numerical_ODE_sol_a_$(a)_E_$(round(E; digits=3))_L_$(round(L; digits=3))_tstep_$(saveat)_T_$(τmax)_tol_$(reltol).txt", "w") do io
         writedlm(io, sol)
     end
-    println("ODE saved to: " * data_path * "numerical_ODE_sol_E_$(round(E; digits=3))_L_$(round(L; digits=3))_a_$(a)_tol_$(reltol).txt")
+    println("ODE saved to: " * data_path * "numerical_ODE_sol_a_$(a)_E_$(round(E; digits=3))_L_$(round(L; digits=3))_tstep_$(saveat)_T_$(τmax)_tol_$(reltol).txt")
 end
 
 # expressions for dt/dτ and dϕ/dτ from Lagrangian

@@ -87,7 +87,7 @@ hplus(h, Θ, Φ) = (1/2) *  (hΘΘ(h, Θ, Φ) - hΦΦ(h, Θ, Φ))
 hcross(h, Θ, Φ) = hΘΦ(h, Θ, Φ)
 
 # compute kerr semi-relativistic waveform
-function Kerr_waveform(kerr_ode_sol_fname::String, waveform_filename::String, Θ::Float64, Φ::Float64, obs_distance::Float64; data_path::String="Results/")
+function Kerr_waveform(kerr_ode_sol_fname::String, waveform_filename::String, Θ::Float64, Φ::Float64, obs_distance::Float64)
     m=1.0;
     # load solution
     sol = readdlm(kerr_ode_sol_fname)
@@ -143,15 +143,14 @@ function Kerr_waveform(kerr_ode_sol_fname::String, waveform_filename::String, Θ
     h_cross = hcross(hMatrix, Θ, Φ);
 
     waveform = transpose(stack([t, h_plus, h_cross]))
-    mkpath(data_path)
-    open(data_path * waveform_filename, "w") do io
+    open(waveform_filename, "w") do io
         writedlm(io, waveform)
     end
-    println("Waveform saved to: " * data_path * waveform_filename)
+    println("Waveform saved to: " * waveform_filename)
 end
 
 # compute semi-relativistic waveform from generic metric geodesic
-function waveform(ode_sol_fname::String, waveform_filename::String, Θ::Float64, Φ::Float64, obs_distance::Float64; data_path::String="Results/")
+function waveform(ode_sol_fname::String, waveform_filename::String, Θ::Float64, Φ::Float64, obs_distance::Float64)
     m=1.0;
     # load solution
     sol = readdlm(ode_sol_fname)
@@ -215,11 +214,10 @@ function waveform(ode_sol_fname::String, waveform_filename::String, Θ::Float64,
     h_cross = hcross(hMatrix, Θ, Φ);
 
     waveform = transpose(stack([t, h_plus, h_cross]))
-    mkpath(data_path)
-    open(data_path * waveform_filename, "w") do io
+    open(waveform_filename, "w") do io
         writedlm(io, waveform)
     end
-    println("Waveform saved to: " * data_path * waveform_filename)
+    println("Waveform saved to: " * waveform_filename)
 end
 end
 

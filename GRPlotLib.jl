@@ -7,7 +7,7 @@ using ..EffPotential
 using Roots
 
 # plot effective potential for an arbitrary metric, specifying Ei, Li_{z}
-function plot_vEff(θi::Float64, ϕi::Float64, a::Float64, M::Float64, E::Float64, L::Float64, m::Float64, g_tt::Function, g_tϕ::Function, g_ϕϕ::Function, ylims::Tuple=(-1, 1), x_width::Int=800; y_width::Int =600)    
+function plot_vEff(θi::Float64, ϕi::Float64, a::Float64, M::Float64, E::Float64, L::Float64, m::Float64, g_tt::Function, g_tϕ::Function, g_ϕϕ::Function, ylims::Tuple, x_width::Int=800; y_width::Int =600)    
     x_res = 0.01
     # margins
     left_margin = 8mm; right_margin=8mm; top_margin=8mm; bottom_margin=8mm;
@@ -54,7 +54,7 @@ function plot_vEff(θi::Float64, ϕi::Float64, a::Float64, M::Float64, E::Float6
     if !isempty(roots)
         for r in roots
             vline!([r], linecolor=:black, linestyle=:dash, label=false)
-            annotate!(r + 50 * x_res, ylims[1] + 0.1 * (ylims[2] - ylims[1]), Plots.text(L"r= %$(round(r; digits=4))", :left, 6))
+            # annotate!(r + 50 * x_res, ylims[1] + 0.1 * (ylims[2] - ylims[1]), Plots.text(L"r= %$(round(r; digits=4))", :left, 6))
         end
     end
     display(vPlot)
@@ -62,7 +62,7 @@ end
 
 
 # saves a html file containing a 3D plot of the trajectory
-function plot_orbit(ode_sol_fname::String, plot_fname::String, zlims::Tuple=(-5, 5); plot_path::String="Plots/", kwargs...)
+function plot_orbit(ode_sol_fname::String, plot_fname::String, zlims::Tuple; plot_path::String="Plots/", kwargs...)
     sol = readdlm(ode_sol_fname)
     t = sol[2, :]; r = sol[3, :]; θ = sol[4, :]; ϕ = sol[5, :]; tdot = sol[6, :]; rdot = sol[7, :]; θdot = sol[8, :]; ϕdot = sol[9, :];
 
@@ -81,7 +81,7 @@ function plot_orbit(ode_sol_fname::String, plot_fname::String, zlims::Tuple=(-5,
 end
 
 # saves a plot of the trajectory projected onto the (Cartesian) xy-plane
-function plot_xy_orbit(ode_sol_fname::String, plot_fname::String, xlims::Tuple=(-11, 11), ylims::Tuple=(-11, 11); plot_path::String="Plots/", kwargs...)
+function plot_xy_orbit(ode_sol_fname::String, plot_fname::String, xlims::Tuple, ylims::Tuple; plot_path::String="Plots/", kwargs...)
     sol = readdlm(ode_sol_fname)
     t = sol[2, :]; r = sol[3, :]; θ = sol[4, :]; ϕ = sol[5, :];
     # project onto cartesian coordinates in flat space
@@ -110,7 +110,39 @@ function plot_waveform(waveform_fname::String, plot_fname::String; plot_path::St
 end
 
 # saves a gif containing a plot of the trajectory concurrently with its xy-plane-projected trajectory. Make sure plot_fname ends in ".gif"
-function waveform_xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, plot_fname::String; plot_path::String="Plots/", res::Int=25, xTicks, ylims::Tuple, yTicks, fps::Int=15)
+function xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, plot_fname::String; plot_path::String="Plots/", nFrames::Int=25, fps::Int=15, kwargs...)
+    sol = readdlm(ode_sol_fname)
+    t=sol[2, :]; r = sol[3, :]; θ = sol[4, :]; ϕ = sol[5, :];
+    xlims=(trunc(Int, minimum(t)), trunc(Int, maximum(t)))
+
+    # project onto cartesian coordinates in flat space
+    x = @. r * sin(θ) * cos(ϕ);   # Eq. 6.3
+    y = @. r * sin(θ) * sin(ϕ);   # Eq. 6.4
+    z = @. r * cos(θ);   # Eq. 6.5
+
+        
+    # plot dimensions
+    ## orbit plot
+    orbit_width = 500; orbit_height = 500;   # square plot for orbit
+
+    anim = Animation()
+        
+    for i in 1:nFrames:length(t)        
+        p = plot(x[1:i], y[1:i], xlabel=L"\textrm{x\ (M)}", ylabel=L"\textrm{y\ (M)}"; kwargs...)
+
+        # plot particle
+        scatter!(p, [x[i]], [y[i]], color=:red)
+
+        frame(anim, p)
+
+    end
+    mkpath(plot_path)
+    gif(anim, plot_path * plot_fname, fps=fps)
+end
+
+
+# saves a gif containing a plot of the trajectory concurrently with its xy-plane-projected trajectory. Make sure plot_fname ends in ".gif"
+function waveform_xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, plot_fname::String; plot_path::String="Plots/", tTicks, hlims::Tuple, hTicks, nFrames::Int=25, fps::Int=15)
     sol = readdlm(ode_sol_fname)
     r = sol[3, :]; θ = sol[4, :]; ϕ = sol[5, :];
     wf = readdlm(waveform_fname)
@@ -139,7 +171,7 @@ function waveform_xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, pl
 
     anim = Animation()
         
-    for i in 1:25:length(t)
+    for i in 1:nFrames:length(t)
         x_gif = x[1:i]; y_gif = y[1:i]; t_gif = t[1:i]; h_plus_gif = h_plus[1:i];
         
         # waveform
@@ -147,10 +179,10 @@ function waveform_xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, pl
         color=:blue,
         xlims=xlims,
         legend = :false,
-        xticks=(xlims[1]:xTicks:xlims[2], ["$(xlims[1] + n * xTicks)" for n=0:(xlims[2]-xlims[1])÷xTicks]),
-        ylims=ylims,
-        yticks=(ylims[1]:yTicks:ylims[2], ["$(ylims[1] + n * yTicks)" for n=0:(ylims[2]-ylims[1])÷yTicks]),
-        xlabel = L"\textrm{Time\ (M)}",
+        xticks=(xlims[1]:tTicks:xlims[2], ["$(xlims[1] + n * tTicks)" for n=0:(xlims[2]-xlims[1])÷tTicks]),
+        ylims=hlims,
+        yticks=(hlims[1]:hTicks:hlims[2], ["$(hlims[1] + n * hTicks)" for n=0:(hlims[2]-hlims[1])÷hTicks]),
+        xlabel = L"\textrm{t\ (M)}",
         ylabel = L"h_{+}",
         size=(wave_width, wave_height),
         left_margin		=  left_margin,
@@ -165,9 +197,9 @@ function waveform_xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, pl
         p2 = plot(x_gif, y_gif,
         color=:black,
         legend = :false,
-        xlabel=L"x",
+        xlabel=L"\textrm{x\ (M)}",
         xlims=(minimum(x)-1, maximum(x)+1),
-        ylabel=L"y", 
+        ylabel=L"\textrm{y\ (M)}", 
         ylims=(minimum(y)-1, maximum(y)+1),
         size=(orbit_width, orbit_height),
         left_margin		=  left_margin,
@@ -179,7 +211,7 @@ function waveform_xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, pl
         guidefontsize = guidefontsize)
 
         # plot particle
-        scatter!([last(x_gif)], [last(y_gif)], color=:blue)
+        scatter!([last(x_gif)], [last(y_gif)], color=:red)
         l = @layout [
             a{1.0w}
             b{0.2h}
@@ -191,5 +223,91 @@ function waveform_xy_orbit_gif(ode_sol_fname::String, waveform_fname::String, pl
     mkpath(plot_path)
     gif(anim, plot_path * plot_fname, fps=fps)
 end
-    
+
+
+# saves a gif containing a plot of the trajectory concurrently with its xy-plane-projected trajectory. Make sure plot_fname ends in ".gif"
+function waveform_orbit_gif(ode_sol_fname::String, waveform_fname::String, plot_fname::String; plot_path::String="Plots/", tTicks, hlims::Tuple, hTicks, xlims::Tuple, ylims::Tuple, zlims::Tuple, nFrames::Int=25, fps::Int=15)
+    # load solution
+    sol = readdlm(ode_sol_fname)
+    t = sol[2, :];
+    r = sol[3, :];
+    θ = sol[4, :];
+    ϕ = sol[5, :];
+
+    # project onto cartesian coordinates in flat space
+    x = @. r * sin(θ) * cos(ϕ);   # Eq. 6.3
+    y = @. r * sin(θ) * sin(ϕ);   # Eq. 6.4
+    z = @. r * cos(θ);   # Eq. 6.5
+
+    # waveform
+    wf = readdlm(waveform_fname)
+    h_plus = wf[3, :]
+
+    gr();
+    tlims = (first(t), last(t));
+
+    hlims = (-1, 1); hTicks = 0.5;
+
+    wave_im_ratio = 5   # width / height
+    wave_height = 300; wave_width = wave_height * wave_im_ratio
+
+    ## orbit plot
+    orbit_width = wave_width; orbit_height = orbit_width   # square plot for orbit
+
+    # margins
+    left_margin = 8mm; right_margin=8mm; top_margin=8mm; bottom_margin=8mm;
+
+    # font sizes
+    xtickfontsize=20; ytickfontsize=20; ;ztickfontsize=20; guidefontsize=30; titlefontsize=30;
+
+    anim = Animation()
+    for n in 1:nFrames:size(t, 1)
+        # waveform
+        p1 = plot(t[1:n], h_plus[1:n],
+        color=:blue,
+        xlims=tlims,
+        legend = :false,
+        xticks=(tlims[1]:tTicks:tlims[2], ["$(convert(Int, floor(tlims[1] + n * tTicks)))" for n=0:(tlims[2]-tlims[1])÷tTicks]),
+        ylims=hlims,
+        # yticks=(hlims[1]:hTicks:hlims[2], ["$(hlims[1] + n * hTicks)" for n=0:(hlims[2]-hlims[1])÷hTicks]),
+        yticks=(hlims[1]:hTicks:hlims[2], ["-1", "", "0", "", "1"]),
+        xlabel = L"\textrm{t\ (M)}",
+        ylabel = L"h_{+}",
+        size=(wave_width, wave_height),
+        left_margin		=  left_margin,
+        right_margin	=  right_margin,
+        top_margin		=  top_margin,
+        bottom_margin	=  bottom_margin,
+        xtickfontsize = xtickfontsize,
+        ytickfontsize = ytickfontsize,
+        guidefontsize = guidefontsize)
+
+        # orbit
+        p2 = plot(x[1:n], y[1:n], z[1:n], color=:black, xlims=xlims, ylims=ylims, zlims=zlims, legend=false, size=(orbit_width, orbit_height),
+        xlabel=L"\textrm{x\ (M)}",
+        ylabel=L"\textrm{y\ (M)}",
+        zlabel=L"\textrm{z\ (M)}",
+        left_margin		=  left_margin,
+        right_margin	=  right_margin,
+        top_margin		=  top_margin,
+        bottom_margin	=  bottom_margin,
+        xtickfontsize = xtickfontsize,
+        ytickfontsize = ytickfontsize,
+        ztickfontsize = ztickfontsize,
+        guidefontsize = guidefontsize)
+        # plot particle 
+        # plot!(p2,  title = "a=$(a), p=$(p), e=$(e), θi=$(round(θi; digits=3)), t=$(round(t[n], digits = 2))", titlefontsize=titlefontsize)
+        scatter!(p2, [x[n]], [y[n]], [z[n]], color=:red)
+
+        l = @layout [
+            a{1.0w}
+            b{0.2h}
+        ]
+        subplot= plot(p2, p1, layout = l)
+        frame(anim, subplot)
+    end
+
+    gif(anim, plot_path * plot_fname, fps=fps)
+end
+
 end

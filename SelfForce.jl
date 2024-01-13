@@ -537,7 +537,7 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
     mkpath(data_path)
     # matrix of SF values- rows are components, columns are component values at different times
     aSF = hcat(aSF...)
-    SF_filename=data_path * "aSF_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_T_$(τOrbit)_tol_$(reltol).txt"
+    SF_filename=data_path * "aSF_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol).txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF)
     end
@@ -545,7 +545,7 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
     τRange = 0.0:saveat:τF |> collect
     # save trajectory- rows are: τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
     sol = transpose(stack([τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot]))
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_T_$(τOrbit)_tol_$(reltol).txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol).txt"
     open(ODE_filename, "w") do io
         writedlm(io, sol)
     end
