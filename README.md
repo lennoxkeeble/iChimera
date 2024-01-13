@@ -19,7 +19,7 @@ Last updated: 01.13.2024
 
 All the dependencies are located in the <em>dependencies.jl</em> file. Simply run <code> include("dependencies.jl")</code> to install all the necessary packages
 
-## Limitations and known possible performance bottlenecks ##
+## Limitations and known possible performance issues ##
 
 * This code has only been tested on Mac OS.
 * Further tests assessing the accuracy of the EMRI trajectory are to be carried out. For example, we take very high order numerical derivatives of the multipole moments, and we have not yet systematially determined the accuracy with which we are doing so. Note that this differs from the approach in Ref. [3], wherein they use the separability of the Hamilton-Jacobi equations in Kerr to fit the derivatives to a complex fourier series expansion in terms of the fundamental frequencies. Unfortunately, there is not yet a robust capability in Julia which allows fitting with complex parameters. As such, we have, for now, instead opted for numerical differentation to obtain the higher order derivatives of the multiplole moments.
