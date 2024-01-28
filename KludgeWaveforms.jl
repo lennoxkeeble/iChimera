@@ -221,4 +221,98 @@ function waveform(ode_sol_fname::String, waveform_filename::String, Θ::Float64,
 end
 end
 
+module NewKludge
+using DelimitedFiles
+using ...HarmonicCoords
+using ...SelfForce
+
+# project h into TT gauge using projection in Babak et al (arXiv:gr-qc/0607007v2) Eqs. 23a - 23c
+hΘΘ(h, Θ, Φ) = @views (cos(Θ)^2) * (h[1, 1, :] * cos(Φ)^2 + h[1, 2, :] * sin(2Φ) + h[2, 2, :] * sin(Φ)^2) + h[3, 3, :] * sin(Θ)^2 - sin(2Θ) * (h[1, 3, :] * cos(Φ) + h[2, 3, :] * sin(Φ))
+hΘΦ(h, Θ, Φ) = @views cos(Θ) * (((-1/2) * h[1, 1, :] * sin(2Φ)) + h[1, 2, :] * cos(2Φ) + (1/2) * h[2, 2, :] * sin(2Φ)) + sin(Θ) * (h[1, 3, :] * sin(Φ) - h[2, 3, :] * cos(Φ))
+hΦΦ(h, θ, Φ) = @views h[1, 1, :] * sin(Φ)^2 - h[1, 2, :] * sin(2Φ) + h[2, 2, :] * cos(Φ)^2
+
+# define h_{+} and h_{×} components of GW
+hplus(h, Θ, Φ) = (1/2) *  (hΘΘ(h, Θ, Φ) - hΦΦ(h, Θ, Φ))
+hcross(h, Θ, Φ) = hΘΦ(h, Θ, Φ)
+
+# compute kerr waveform in the new kludge scheme
+function Kerr_waveform(a::Float64, M::Float64, m::Float64, kerr_ode_sol_fname::String, waveform_filename::String, Θ::Float64, Φ::Float64, obs_distance::Float64)
+    
+    # load solution
+    sol = readdlm(kerr_ode_sol_fname)
+    t = sol[2, :]; r = sol[3, :]; θ = sol[4, :]; ϕ = sol[5, :]; tdot = sol[6, :]; rdot = sol[7, :]; θdot = sol[8, :]; ϕdot = sol[9, :]; tddot = sol[10, :]; rddot = sol[11, :]; θddot = sol[12, :]; ϕddot = sol[13, :];
+
+    # number of points in the trajectory
+    nPoints = length(t)
+
+    # initialize data arrays for waveform computation
+    Mijkl2_data = [Float64[] for i=1:3, j=1:3, k=1:3, l=1:3]
+    Mijk2_data = [Float64[] for i=1:3, j=1:3, k=1:3]
+    Mij2_data = [Float64[] for i=1:3, j=1:3]
+    Sij1_data = [Float64[] for i=1:3, j=1:3]
+    Sijk1_data = [Float64[] for i=1:3, j=1:3, k=1:3]
+    xBL = [Float64[] for i in 1:nPoints]
+    vBL = [Float64[] for i in 1:nPoints]
+    aBL = [Float64[] for i in 1:nPoints]
+    xH = [Float64[] for i in 1:nPoints]
+    x_H = [Float64[] for i in 1:nPoints]
+    vH = [Float64[] for i in 1:nPoints]
+    v_H = [Float64[] for i in 1:nPoints]
+    v = zeros(nPoints)
+    rH = zeros(nPoints)
+    aH = [Float64[] for i in 1:nPoints]
+    a_H = [Float64[] for i in 1:nPoints]
+    Mij2 = zeros(3, 3, nPoints)
+    Mijk3 = zeros(3, 3, 3, nPoints)
+    Mijkl4 = zeros(3, 3, 3, 3, nPoints)
+    Sij2 = zeros(3, 3, nPoints)
+    Sijk3 = zeros(3, 3, 3, nPoints)
+    hij = zeros(3, 3, nPoints)
+
+    # define object that will be iterated over
+    n = 1:length(t) |> collect
+
+    # convert trajectories to BL coords
+    @inbounds Threads.@threads for i in n
+        xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
+        vBL[i] = Vector{Float64}([rdot[i], θdot[i], ϕdot[i]]) / tdot[i];             # Eq. 27: divide by dt/dτ to get velocity wrt BL time
+        aBL[i] = Vector{Float64}([rddot[i], θddot[i], ϕddot[i]]) / (tdot[i]^2);      # divide by (dt/dτ)² to get accelerations wrt BL time
+    end
+
+    @inbounds Threads.@threads for i in n
+        xH[i] = HarmonicCoords.xBLtoH(xBL[i], a, M)
+        x_H[i] = xH[i]
+        rH[i] = HarmonicCoords.norm_3d(xH[i]);
+    end
+    @inbounds Threads.@threads for i in n
+        vH[i] = HarmonicCoords.vBLtoH(xH[i], vBL[i], a, M); 
+        v_H[i] = vH[i]; 
+        v[i] = HarmonicCoords.norm_3d(vH[i]);
+    end
+    @inbounds Threads.@threads for i in n
+        aH[i] = HarmonicCoords.aBLtoH(xH[i], vBL[i], aBL[i], a, M); 
+        a_H[i] = aH[i]
+    end
+
+    # calculate ddotMijk, ddotMijk, dotSij "analytically" (that is, by using analytial expressions that take as argument the numerical solution of the geodesic equation)
+    SelfForce.moments_wf!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data)
+
+    # calculate moment derivatives dddotMijk, ddotSij, ddddotMijkl, and dddotSijk via numerical differentiation
+    SelfForce.moment_derivs_wf!(t, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mij2, Mijk3, Mijkl4, Sij2, Sijk3)
+
+    # calculate metric perturbations (Eq. 84) using moment derivatives
+    SelfForce.hij!(hij, nPoints, obs_distance, Θ, Φ, Mij2, Mijk3, Mijkl4, Sij2, Sijk3)
+
+    h_plus = NewKludge.hplus(hij, Θ, Φ)
+    h_cross = NewKludge.hcross(hij, Θ, Φ);
+
+    waveform = transpose(stack([t, h_plus, h_cross]))
+
+    open(waveform_filename, "w") do io
+        writedlm(io, waveform)
+    end
+
+    end
+end
+
 end

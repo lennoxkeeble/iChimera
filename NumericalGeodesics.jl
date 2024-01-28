@@ -26,28 +26,29 @@ function Γμαβ(μ::Int, α::Int, β::Int, g_tt::Function, g_tϕ::Function, g_
 end
 
 # computes \ddot{x}^μ (which must be pre-allocated) for some given \dot{x}^μ, x^μ
-function xddot!(ddx::Vector{Float64}, dx::Vector{Float64}, x::Vector{Float64}, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, ginv::Function, a::Float64, M::Float64)
+function xddot!(dx::SVector{4, Float64}, x::SVector{4, Float64}, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, ginv::Function, a::Float64, M::Float64)
+    ddx= zeros(4)
     @inbounds Threads.@threads for μ=1:4
         ddx[μ] = 0
         @inbounds for ρ=1:4, σ=1:4
             ddx[μ] += - Γμαβ(μ, ρ, σ, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, ginv, x..., a, M) * dx[ρ] * dx[σ]
         end
     end
-    return
+    return SVector{4, Float64}(ddx)
 end
 
 # evolves geodesic equation where the metric functions take arguments (t, r, θ, ϕ, a, M), and the initial conditions ics = [[dti, dri, dθi, dϕi], [ti, ri, θi, ϕi]]
 function compute_geodesic(g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, ginv::Function, ics::AbstractArray, a::Float64, E::Float64, L::Float64, τmax::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-6, abstol::Float64=1e-6, saveat::Float64=0.5; data_path::String="Results/")
-    function geodesicEq!(ddu, du, u, params, t) 
-        NumericalGeodesics.xddot!(ddu, du, u, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, ginv, params...)
+    function geodesicEq(du, u, params, t) 
+        NumericalGeodesics.xddot!(du, u, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, ginv, params...)
     end
 
     # orbital parameters
     M = 1.; m=1.;
 
     # set up ODE
-    τspan = (0.0, τmax); params = [a, M];
-    prob = SecondOrderODEProblem(geodesicEq!, ics..., τspan, params);
+    τspan = (0.0, τmax); params = @SArray [a, M];
+    prob = SecondOrderODEProblem(geodesicEq, ics..., τspan, params);
 
     # numerically solve geodesic equation
     sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat);

@@ -90,16 +90,19 @@ STF(u::Vector, i::Int, j::Int, k::Int) = u[i] * u[j] * u[k] - (1.0/5.0) * dot(u,
 η(q::Float64) = q/((1+q)^2)   # q = mass ratio
 η2(q::Float64) = q/(1+q)
 
-# define multipole moments
+# # define multipole moments
 # M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * m * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
-M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η2(m/M) * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
 # ddotMij(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * m * ((-2.0δ(i, j)/3.0) * (dot(x_H, a_H) + dot(v_H, v_H)) + x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j])   # Eq. 7.17
+
+# modified code
+M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η2(m/M) * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
 ddotMij(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η2(m/M) * ((-2.0δ(i, j)/3.0) * (dot(x_H, a_H) + dot(v_H, v_H)) + x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j])   # Eq. 7.17
 
-
 M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (M - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
-# ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (M-m) * ((-12.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (6/5) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (3/5) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
 ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (M-m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
+
+# second derivative of Mijkl, as defined in Eq. 85 (LONG EXPRESSION COPIED FROM MMA)
+ddotMijkl(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int, l::Int) = m*η(m/M)*(2.0*(x_H[j]*v_H[i] + x_H[i]*v_H[j])*(x_H[l]*v_H[k] + x_H[k]*v_H[l]) - (4.0*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3])*(x_H[k]*δ(j,l)*v_H[i] + x_H[j]*δ(k,l)*v_H[i] + x_H[k]*δ(i,l)*v_H[j] + x_H[i]*δ(k,l)*v_H[j] + x_H[j]*δ(i,l)*v_H[k] + x_H[i]*δ(j,l)*v_H[k] + x_H[l]*(δ(j,k)*v_H[i] + δ(i,k)*v_H[j] + δ(i,j)*v_H[k]) + (x_H[k]*δ(i,j) + x_H[j]*δ(i,k) + x_H[i]*δ(j,k))*v_H[l]))/7. - (2.0*(x_H[i]*x_H[l]*δ(j,k) + x_H[k]*(x_H[l]*δ(i,j) + x_H[j]*δ(i,l) + x_H[i]*δ(j,l)) + x_H[j]*(x_H[l]*δ(i,k) + x_H[i]*δ(k,l)))*(v_H[1]^2 + v_H[2]^2 + v_H[3]^2 + x_H[1]*a_H[1] + x_H[2]*a_H[2] + x_H[3]*a_H[3]))/7. + ((δ(i,l)*δ(j,k) + δ(i,k)*δ(j,l) + δ(i,j)*δ(k,l))*(8.0*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3])^2 + 4.0*(x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*(v_H[1]^2 + v_H[2]^2 + v_H[3]^2 + x_H[1]*a_H[1] + x_H[2]*a_H[2] + x_H[3]*a_H[3])))/35. + x_H[k]*x_H[l]*(2.0*v_H[i]*v_H[j] + x_H[j]*a_H[i] + x_H[i]*a_H[j]) + x_H[i]*x_H[j]*(2.0*v_H[k]*v_H[l] + x_H[l]*a_H[k] + x_H[k]*a_H[l]) - ((x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*(δ(k,l)*(2.0*v_H[i]*v_H[j] + x_H[j]*a_H[i] + x_H[i]*a_H[j]) + δ(j,l)*(2.0*v_H[i]*v_H[k] + x_H[k]*a_H[i] + x_H[i]*a_H[k]) + δ(i,l)*(2.0*v_H[j]*v_H[k] + x_H[k]*a_H[j] + x_H[j]*a_H[k]) + δ(j,k)*(2.0*v_H[i]*v_H[l] + x_H[l]*a_H[i] + x_H[i]*a_H[l]) + δ(i,k)*(2.0*v_H[j]*v_H[l] + x_H[l]*a_H[j] + x_H[j]*a_H[l]) + δ(i,j)*(2.0*v_H[k]*v_H[l] + x_H[l]*a_H[k] + x_H[k]*a_H[l])))/7.)
 
 # define some objects useful for efficient calculation of current quadrupole and its derivatives
 const ρ::Vector{Int} = [1, 2, 3]   # spacial indices
@@ -126,13 +129,17 @@ function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::A
     return η(m/M) * (M-m) * S / 6.0
 end
 
+# first derivative of Sijk, as defined in Eq. 86 (LONG EXPRESSION COPIED FROM MMA)
+dotSijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) =(m*η(m/M)*((δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,1][j] + x_H[j]*(x_H[k]*εkl[1,1][i] + x_H[i]*εkl[1,1][k])))*v_H[1]^2 + (δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,2][j] + x_H[j]*(x_H[k]*εkl[1,2][i] + x_H[i]*εkl[1,2][k])))*v_H[1]*v_H[2] + (δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,1][j] + x_H[j]*(x_H[k]*εkl[2,1][i] + x_H[i]*εkl[2,1][k])))*v_H[1]*v_H[2] + (δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,2][j] + x_H[j]*(x_H[k]*εkl[2,2][i] + x_H[i]*εkl[2,2][k])))*v_H[2]^2 + x_H[1]*v_H[1]*(-2.0*δ(j,k)*(εkl[1,1][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,1][1]*v_H[1] + εkl[1,1][2]*v_H[2] + εkl[1,1][3]*v_H[3]) + (x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[1,1][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,1][1]*v_H[1] + εkl[1,1][2]*v_H[2] + εkl[1,1][3]*v_H[3]) + (x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[1,1][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,1][1]*v_H[1] + εkl[1,1][2]*v_H[2] + εkl[1,1][3]*v_H[3]) + (x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3])*v_H[i]) + 5.0*(εkl[1,1][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[1,1][j]*v_H[i] + εkl[1,1][i]*v_H[j]) + (x_H[j]*εkl[1,1][i] + x_H[i]*εkl[1,1][j])*v_H[k])) + x_H[1]*v_H[2]*(-2.0*δ(j,k)*(εkl[1,2][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,2][1]*v_H[1] + εkl[1,2][2]*v_H[2] + εkl[1,2][3]*v_H[3]) + (x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[1,2][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,2][1]*v_H[1] + εkl[1,2][2]*v_H[2] + εkl[1,2][3]*v_H[3]) + (x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[1,2][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,2][1]*v_H[1] + εkl[1,2][2]*v_H[2] + εkl[1,2][3]*v_H[3]) + (x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3])*v_H[i]) + 5.0*(εkl[1,2][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[1,2][j]*v_H[i] + εkl[1,2][i]*v_H[j]) + (x_H[j]*εkl[1,2][i] + x_H[i]*εkl[1,2][j])*v_H[k])) + x_H[2]*v_H[1]*(-2.0*δ(j,k)*(εkl[2,1][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,1][1]*v_H[1] + εkl[2,1][2]*v_H[2] + εkl[2,1][3]*v_H[3]) + (x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[2,1][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,1][1]*v_H[1] + εkl[2,1][2]*v_H[2] + εkl[2,1][3]*v_H[3]) + (x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[2,1][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,1][1]*v_H[1] + εkl[2,1][2]*v_H[2] + εkl[2,1][3]*v_H[3]) + (x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3])*v_H[i]) + 5.0*(εkl[2,1][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[2,1][j]*v_H[i] + εkl[2,1][i]*v_H[j]) + (x_H[j]*εkl[2,1][i] + x_H[i]*εkl[2,1][j])*v_H[k])) + x_H[2]*v_H[2]*(-2.0*δ(j,k)*(εkl[2,2][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,2][1]*v_H[1] + εkl[2,2][2]*v_H[2] + εkl[2,2][3]*v_H[3]) + (x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[2,2][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,2][1]*v_H[1] + εkl[2,2][2]*v_H[2] + εkl[2,2][3]*v_H[3]) + (x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[2,2][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,2][1]*v_H[1] + εkl[2,2][2]*v_H[2] + εkl[2,2][3]*v_H[3]) + (x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3])*v_H[i]) + 5.0*(εkl[2,2][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[2,2][j]*v_H[i] + εkl[2,2][i]*v_H[j]) + (x_H[j]*εkl[2,2][i] + x_H[i]*εkl[2,2][j])*v_H[k])) + x_H[1]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,1][j] + x_H[j]*(x_H[k]*εkl[1,1][i] + x_H[i]*εkl[1,1][k])))*a_H[1] + x_H[2]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,1][j] + x_H[j]*(x_H[k]*εkl[2,1][i] + x_H[i]*εkl[2,1][k])))*a_H[1] + x_H[1]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,2][j] + x_H[j]*(x_H[k]*εkl[1,2][i] + x_H[i]*εkl[1,2][k])))*a_H[2] + x_H[2]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,2][j] + x_H[j]*(x_H[k]*εkl[2,2][i] + x_H[i]*εkl[2,2][k])))*a_H[2]))/15.
+
+
 # numerically compute the nth derivative of a given BSplineKit interpolator at some x, where n ≤ BSplineOrder
 function ND(x::Float64, itp, n::Int)
     return diff(itp, Derivative(n))(x)
 end
 
-# construct fill pre-allocated arrays with the appropriate derivatives of the mass and current moments
-function moments!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v_H::AbstractArray, xH::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, Mij2::AbstractArray, Mijk2::AbstractArray, Sij1::AbstractArray)
+# fill pre-allocated arrays with the appropriate derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
+function moments_tr!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v_H::AbstractArray, xH::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, Mij2::AbstractArray, Mijk2::AbstractArray, Sij1::AbstractArray)
     @inbounds Threads.@threads for i=1:3
         for j=1:3
             Mij2[i, j] = ddotMij.(a_H, v_H, x_H, m, M, i, j)
@@ -144,8 +151,26 @@ function moments!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v_H:
     end
 end
 
-# calculate time derivatives of the moments. allocate memory to data arrays. TO-DO: FIND MORE DETAIL ON IMPORTANCE OF SPLINE ORDER
-function moment_derivs!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
+# fill pre-allocated arrays with the appropriate derivatives of the mass and current moments for waveform computation
+function moments_wf!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v_H::AbstractArray, xH::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, Mij2::AbstractArray, Mijk2::AbstractArray, Mijkl2::AbstractArray, Sij1::AbstractArray, Sijk1::AbstractArray)
+    @inbounds Threads.@threads for i=1:3
+        for j=1:3
+            Mij2[i, j] = ddotMij.(a_H, v_H, x_H, m, M, i, j)
+            Sij1[i, j] = dotSij.(aH, v_H, vH, x_H, xH, m, M, i, j)
+            @inbounds for k=1:3
+                Mijk2[i, j, k] = ddotMijk.(a_H, v_H, x_H, m, M, i, j, k)
+                Sijk1[i, j, k] = dotSijk.(a_H, v_H, x_H, m, M, i, j, k)
+                @inbounds for l=1:3
+                    Mijkl2[i, j, k, l] = ddotMijkl.(a_H, v_H, x_H, m, M, i, j, k, l)
+                end
+            end
+        end
+    end
+end
+
+
+# calculate time derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
+function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
     @inbounds Threads.@threads for i=1:3
         @inbounds for j=1:3
             MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(4))
@@ -171,6 +196,66 @@ function moment_derivs!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data
         end
     end
 end
+
+# calculate time derivatives of the moments for the waveform computation
+function moment_derivs_wf!(tdata::AbstractArray, Mij2_data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mij2::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray)
+    @inbounds Threads.@threads for i=1:3
+        @inbounds for j=1:3
+            SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(2))
+            @views Sij2[i, j, :] = ND.(tdata, Ref(SijSpline), 1)   # differentiate 1st derivative 2-1=1 time
+            @inbounds for k=1:3
+                MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(2))
+                @views Mijk3[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 1)   # differentiate 2nd derivative 3-2=1 time
+                SijkSpline = interpolate(tdata, Sijk1data[i, j, k], BSplineOrder(3))
+                @views Sijk3[i, j, k, :] = ND.(tdata, Ref(SijkSpline), 2)   # differentiate 1st derivative 3-1=2 times
+                @inbounds for l=1:3
+                    MijklSpline = interpolate(tdata, Mijkl2data[i, j, k, l], BSplineOrder(3))
+                    @views Mijkl4[i, j, k, l, :] = ND.(tdata, Ref(MijklSpline), 2)   # differentiate 2nd derivative 4-2=2 times
+                end
+            end 
+        end
+    end
+
+    # for consistency, we convert the Mij2_data object, which is a matrix of vectors, into the same type as Sij2, Mijk3, etc.
+    @inbounds Threads.@threads for i=1:3
+        for j=1:3
+            @views Mij2[i, j, :] = Mij2_data[i, j]
+        end
+    end
+end
+
+# returns hij array at some time t specified as an index (rather than a time in seconds)
+function hij!(hij::AbstractArray, nPoints::Int, r::Float64, Θ::Float64, Φ::Float64, Mij2::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray)
+    # n ≡ unit vector pointing in direction of far away observer
+    nx = sin(Θ) * cos(Φ)
+    ny = sin(Θ) * sin(Φ)
+    nz = cos(Θ)
+    n = [nx, ny, nz]
+
+    # calculate perturbations in TT gauge (Eq. 84)
+    @inbounds Threads.@threads for t=1:nPoints
+        for i=1:3
+            @inbounds for j=1:3
+                @views hij[i, j, t] = 0    # set all entries to zero
+
+                @views hij[i, j, t] += 2.0 * Mij2[i, j, t] / r    # first term in Eq. 84 
+
+                @inbounds for k=1:3
+                    @views hij[i, j, t] += 2.0 * Mijk3[i, j, k, t] * n[k] / (3.0r)    # second term in Eq. 84
+
+                    @inbounds for l=1:3
+                        @views hij[i, j, t] += 4.0 * (εkl[k, l][i] * Sij2[j, k, t] * n[l] + εkl[k, l][j] * Sij2[i, k, t] * n[l]) / (3.0r) + Mijkl4[i, j, k, l, t] * n[k] * n[l] / (6.0r)    # third and fourth terms in Eq. 84
+                        
+                        @inbounds for m=1:3
+                            @views hij[i, j, t] += (εkl[k, l][i] * Sijk3[j, k, m, t] * n[l] * n[m] + εkl[k, l][j] * Sijk3[i, k, m, t] * n[l] * n[m]) / (2.0r)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 
 # calculate radiation reaction potentials
 function Vrr(t::Float64, xH::AbstractArray, Mij5::AbstractArray, Mij7::AbstractArray, Mijk7::AbstractArray)    # Eq. 44
@@ -400,10 +485,10 @@ function selfAcc!(n::Vector{Int}, aSF::AbstractArray, xBL::AbstractArray, vBL::A
     end
     
     # calculate ddotMijk, ddotMijk, dotSij "analytically"
-    SelfForce.moments!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
+    SelfForce.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
 
     # calculate moment derivatives numerically at t = tF
-    SelfForce.moment_derivs!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6)
+    SelfForce.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6)
 
     return SelfForce.aRRα(n, aSF, 0.0, xH, v, v_H, vH, xBL, rH, a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)
 end
@@ -446,43 +531,53 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
     aSF_temp = zeros(4, nPoints)
     aSF_avg = zeros(4)
 
-    function geodesicEq!(ddu, du, u, params, t)
-        ddu[1] = Kerr.KerrGeodesics.tddot(u..., du..., params...) + aSF_avg[1]
-        ddu[2] = Kerr.KerrGeodesics.rddot(u..., du..., params...) + aSF_avg[2]
-        ddu[3] = Kerr.KerrGeodesics.θddot(u..., du..., params...) + aSF_avg[3]
-        ddu[4] = Kerr.KerrGeodesics.ϕddot(u..., du..., params...) + aSF_avg[4]
+    function geodesicEq(du, u, params, t)
+        ddt = Kerr.KerrGeodesics.tddot(u..., du..., params...) + aSF_avg[1]
+        ddr = Kerr.KerrGeodesics.rddot(u..., du..., params...) + aSF_avg[2]
+        ddθ = Kerr.KerrGeodesics.θddot(u..., du..., params...) + aSF_avg[3]
+        ddϕ = Kerr.KerrGeodesics.ϕddot(u..., du..., params...) + aSF_avg[4]
+        @SArray [ddt, ddr, ddθ, ddϕ]
     end
 
+
     # orbital parameters
-    params = [a, M];
+    params = @SArray [a, M];
 
     # define periastron and apastron
     rp = p * M / (1 + e);
     ra = p * M / (1 - e);
 
-    # calculate integrals of motion from orbital parameters
+    # calculate integrals of motion from orbital parameters - TO-DO: CHOOSE A CONVENTION ON HOW TO HANDLE UNITS, E.G., M=1.0? USE SCHMIDT OR NEW KLUDGE FUNCTION?
     EEi, LLi, QQi = Kerr.ConstantsOfMotion.ELQ(a, p, e, θi)   # dimensionless constants
 
     # initial conditions for Kerr geodesic trajectory
     ri = ra;
-    ics = Kerr.KerrGeodesics.boundKerr_ics(a, M, m, EEi, LLi, ri, θi, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ);
-    τ0 = 0.0; Δτ = nPoints * saveat * M; τF = τ0 + Δτ; params = [a, M];
+    # ics = Kerr.KerrGeodesics.boundKerr_ics(a, M, m, EEi, LLi, ri, θi, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ);
+    ics = Kerr.KerrGeodesics.boundKerr_ics(a, M, EEi, LLi, ri, θi, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ);
+    τ0 = 0.0; Δτ = nPoints * saveat   # subtract saveat / 2 to guarantee that data is saved only at N=nPoints 
+    τF = τ0 + Δτ; params = [a, M];
     n=1:nPoints |> collect
     rLSO = LSO_p(a, M)
     while τOrbit > τF
         τspan = (τ0, τF)
 
         # stop when it reaches LSO
-        condition(u, t , integrator) = u[6] - rLSO # Is zero when r = rLSO
+        condition(u, t , integrator) = u[6] - rLSO # Is zero when r = rLSO (to 5 d.p)
         affect!(integrator) = terminate!(integrator)
         cb = ContinuousCallback(condition, affect!)
 
         # numerically solve for geodesic motion
-        prob = SecondOrderODEProblem(geodesicEq!, ics..., τspan, params);
+        prob = SecondOrderODEProblem(geodesicEq, ics..., τspan, params);
         
-        sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat, callback = cb);
+        # println(saveat)
+        if e==0.0
+            sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat, callback = cb);
+        else
+            sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat);
+        end
 
         # deconstruct solution
+        # println(sol.t)
         ttdot = sol[1, :];
         rrdot = sol[2, :];
         θθdot = sol[3, :];
@@ -492,20 +587,27 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
         θθ = sol[7, :];
         ϕϕ= sol[8, :];
 
-        # break out of loop when LSO reached
-        if length(tt) < nPoints
-            τF = τspan[1] + saveat * (length(tt)-1)
-            ttddot = Kerr.KerrGeodesics.tddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
-            rrddot = Kerr.KerrGeodesics.rddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
-            θθddot = Kerr.KerrGeodesics.θddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
-            ϕϕddot = Kerr.KerrGeodesics.ϕddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
-            append!(t, tt); append!(tdot, ttdot); append!(tddot, ttddot); append!(r, rr); append!(rdot, rrdot); append!(rddot, rrddot); append!(θ, θθ); append!(θdot, θθdot); append!(θddot, θθddot); append!(ϕ, ϕϕ); append!(ϕdot, ϕϕdot); append!(ϕddot, ϕϕddot);
-            println("LSO reached at t = $(last(tt))")
+        # println(length(tt))
+        # println(τspan)
+        # break out of loop when LSO reached- either the integration terminated, or there is a repeated value of t (due to ODE solver feature)
+        if (length(tt) < nPoints) | !all(≠(0), diff(tt))
+            println("Integration terminated at t = $(last(t))")
             break
+        elseif length(tt)>nPoints
+            # deconstruct solution
+            ttdot = sol[1, 1:nPoints+1];
+            rrdot = sol[2, 1:nPoints+1];
+            θθdot = sol[3, 1:nPoints+1];
+            ϕϕdot = sol[4, 1:nPoints+1];
+            tt = sol[5, 1:nPoints+1];
+            rr = sol[6, 1:nPoints+1];
+            θθ = sol[7, 1:nPoints+1];
+            ϕϕ= sol[8, 1:nPoints+1];
+            τF = sol.t[nPoints+1]
         end
 
         # save endpoints for initial conditions of next geodesic
-        ics = [[last(ttdot), last(rrdot), last(θθdot), last(ϕϕdot)], [last(tt), last(rr), last(θθ), last(ϕϕ)]];
+        ics = [@SArray[last(ttdot), last(rrdot), last(θθdot), last(ϕϕdot)], @SArray[last(tt), last(rr), last(θθ), last(ϕϕ)]];
         # update evolution times for next geodesic piece
         τ0 = τF
         τF += Δτ
@@ -521,7 +623,6 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
 
         # store parts of trajectory
         append!(t, tt); append!(tdot, ttdot); append!(tddot, ttddot); append!(r, rr); append!(rdot, rrdot); append!(rddot, rrddot); append!(θ, θθ); append!(θdot, θθdot); append!(θddot, θθddot); append!(ϕ, ϕϕ); append!(ϕdot, ϕϕdot); append!(ϕddot, ϕϕddot);
-
         
         # calculate SF at each point of trajectory and take the sum
         SelfForce.selfAcc!(n, aSF_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt, ttdot, rr, rrdot, rrddot, θθ, θθdot, θθddot, ϕϕ, ϕϕdot, ϕϕddot, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m);
@@ -535,6 +636,7 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
 
     # save data 
     mkpath(data_path)
+
     # matrix of SF values- rows are components, columns are component values at different times
     aSF = hcat(aSF...)
     SF_filename=data_path * "aSF_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol).txt"
@@ -542,7 +644,11 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
         writedlm(io, aSF)
     end
 
-    τRange = 0.0:saveat:τF |> collect
+    # number of data points
+    n_OrbPoints = size(r, 1)
+
+    # save trajectory
+    τRange = 0.0:saveat:(n_OrbPoints-1) * saveat |> collect
     # save trajectory- rows are: τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
     sol = transpose(stack([τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot]))
     ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol).txt"

@@ -73,7 +73,7 @@ function plot_orbit(ode_sol_fname::String, plot_fname::String, zlims::Tuple; plo
 
     # 3d plot
     plotlyjs()
-    orbit_plot = Plots.plot(x, y, z, markersize=0.5, background_color = :black, color = :white, axis=([], false), legend=false, zlims=zlims)
+    orbit_plot = Plots.plot(x, y, z, markersize=0.5, background_color = :black, color = :white, axis=([], false), legend=false, zlims=zlims, kwargs...)
     mkpath(plot_path)
     Plots.html(orbit_plot, plot_path * plot_fname)
     println("File saved: " *  plot_path * plot_fname)
