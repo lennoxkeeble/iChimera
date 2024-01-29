@@ -64,9 +64,9 @@ function ∂Kij_∂xk(xH::AbstractArray, rH::Float64, xBL::AbstractArray, jBLH::
     ∂K=0.0
     @inbounds for m=1:3
         for l=1:3   # iterate over m and l first to avoid over-counting
-            ∂K += 2.0 * g_μν(0., xBL..., a, M, l+1, m+1) * HarmonicCoords.HessBLH(xH, rH, a, M, m)[i, k] * jBLH[l, i]  # last term Eq. A14
+            ∂K += 2.0 * g_μν(0., xBL..., a, M, l+1, m+1) * HarmonicCoords.HessBLH(xH, rH, a, M, m)[j, k] * jBLH[l, i]  # last term Eq. A14
             @inbounds for μ=1:4, n=1:3
-                ∂K += ((g_μν(0., xBL..., a, M, μ, l+1) * Γαμν(0., xBL..., a, M, μ, m+1, n+1) + g_μν(0., xBL..., a, M, μ, m+1) * Γαμν(0., xBL..., a, M, μ, l+1, n+1))/2) * jBLH[n, k] * jBLH[m, i] * jBLH[l, i]   # first term of Eq. A14
+                ∂K += ((g_μν(0., xBL..., a, M, μ, l+1) * Γαμν(0., xBL..., a, M, μ, m+1, n+1) + g_μν(0., xBL..., a, M, μ, m+1) * Γαμν(0., xBL..., a, M, μ, l+1, n+1))/2) * jBLH[n, k] * jBLH[m, j] * jBLH[l, i]   # first term of Eq. A14
             end
         end
     end
@@ -88,15 +88,10 @@ STF(u::Vector, i::Int, j::Int, k::Int) = u[i] * u[j] * u[k] - (1.0/5.0) * dot(u,
 # define mass-ratio parameters
 μ(m::Float64, M::Float64) = m * M / (m + M)
 η(q::Float64) = q/((1+q)^2)   # q = mass ratio
-η2(q::Float64) = q/(1+q)
 
-# # define multipole moments
-# M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * m * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
-# ddotMij(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * m * ((-2.0δ(i, j)/3.0) * (dot(x_H, a_H) + dot(v_H, v_H)) + x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j])   # Eq. 7.17
-
-# modified code
-M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η2(m/M) * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
-ddotMij(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η2(m/M) * ((-2.0δ(i, j)/3.0) * (dot(x_H, a_H) + dot(v_H, v_H)) + x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j])   # Eq. 7.17
+# define multipole moments
+M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * m * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
+ddotMij(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * m * ((-2.0δ(i, j)/3.0) * (dot(x_H, a_H) + dot(v_H, v_H)) + x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j])   # Eq. 7.17
 
 M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (M - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
 ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (M-m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
@@ -167,7 +162,6 @@ function moments_wf!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v
         end
     end
 end
-
 
 # calculate time derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
 function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
@@ -381,7 +375,7 @@ function C_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂K_�
     @inbounds for i=1:3
         C += 2.0 * (1.0 - Q) * vH[i] * ∂K_∂xk[i]
         @inbounds for j=1:3
-            C += 4.0 * Qi[i] * vH[j] * (∂Ki_∂xk[i, j] - ∂Ki_∂xk[j, i]) / 2.0
+            C += -4.0 * Qi[i] * vH[j] * (∂Ki_∂xk[i, j] - ∂Ki_∂xk[j, i]) / 2.0
         end
     end
     return C
@@ -571,11 +565,12 @@ function compute_inspiral!(τOrbit::Float64, nPoints::Int, M::Float64, m::Float6
         
         # println(saveat)
         if e==0.0
-            sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat, callback = cb);
+            sol = solve(prob, AutoTsit5(DP8()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat, callback = cb);
         else
-            sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat);
+            sol = solve(prob, AutoTsit5(DP8()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat);
         end
 
+        # AutoTsit5(RK4())
         # deconstruct solution
         # println(sol.t)
         ttdot = sol[1, :];
