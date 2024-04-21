@@ -4,6 +4,10 @@ module KerrMetric
 using LinearAlgebra
 using StaticArrays
 
+# define inner/outer horizons
+rplus(a::Float64, M::Float64) = M + sqrt(M^2 - a^2)
+rminus(a::Float64, M::Float64) = M - sqrt(M^2 - a^2)
+
 # covariant metric components
 Δ(r::Float64, a::Float64, M::Float64) = r^2 - 2.0M * r + a^2
 Σ(r::Float64, θ::Float64, a::Float64) = r^2 + (a * cos(θ))^2
@@ -73,9 +77,10 @@ using QuadGK
 using Elliptic
 using PolynomialRoots
 using ..Kerr
+using GSL
 
 # calculate dimensionless E, L, Q, as per Schmidt (arXiv:gr-qc/0202090)
-function ELQ(a::Float64, p::Float64, e::Float64, θi::Float64)
+function SchmidtELQ(a::Float64, p::Float64, e::Float64, θi::Float64)
     # define turning points rp, ra
     rp = p / (1 + e)
     ra  = p / (1 - e)
@@ -119,11 +124,9 @@ function ELQ(a::Float64, p::Float64, e::Float64, θi::Float64)
 end
 
 # calculates dimensionless kerr fundamental frequencies wrt proper time and the conversion factor to boyer-lindquist coordinate time (Schmidt)
-function KerrFreqs(a::Float64, p::Float64, e::Float64, θi::Float64)
+function SchmidtKerrFreqs(a::Float64, p::Float64, e::Float64, θi::Float64)
     # constants of motion
-    En = En(a, p, e, θi)
-    L = L(a, p, e, θi)
-    Q = Q(a, p, e, θi)
+    En, L, Q = SchmidtELQ(a, p, e, θi)
 
     zm = cos(θi)
     zp = sqrt(((1)/((2a^2) * (1 - En^2))) * ((a^2) * (1 - En^2) + L^2 + Q + sqrt((4a^2) * (-1 + En^2) * Q + ((-a^2) * (-1 + En^2) + L^2 + Q)^2)))
@@ -217,6 +220,55 @@ end
 
 s = [(-1, -1), (-1, 1), (1, -1), (1, 1)]    # sign pairs (s₁, s₂) in Eq. E32
 
+
+# compute p, e, θ from (a, E, L, Q, C)
+function peθ_gsl(a::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M::Float64)
+    # define coefficients of radial quartic (Eq. E24)
+    a0 = a^2 * C / (1.0 - E^2)
+    a1 = - 2.0M * Q / (1.0 - E^2)
+    a2 =  (a^2 * (1.0 - E^2) + L^2 + C) / (1.0 - E^2)
+    a3 = - 2.0M / (1.0 - E^2)
+
+    δ = -3.0 * a3^2 / 8.0 + a2
+    τ = a3^3 / 8.0 - a2 * a3 / 2.0 + a1
+    ε =  -3.0 * a3^4 /256.0 + a2 * a3^2 / 16.0 - a1 * a3 / 4.0 + a0
+
+    b_0 = δ^3 / 2.0 - δ * ε / 2.0 - τ^2 / 8.0
+    b_1 = 2.0 * δ^2 - ε
+    b_2 = 5.0δ/2.0
+
+    # solve depressed cubic (Eq. E27)
+    root_1 = Cdouble[0]; root_2 = Cdouble[0]; root_3 = Cdouble[0];
+    GSL.poly_solve_cubic(b_2, b_1, b_0, root_1, root_2, root_3)
+    y1 = root_1[1]
+
+    # solve radial quartic (Eq. E24)
+    δplus2y1 = δ + 2.0y1;
+    Threeδplus2y1 = 3.0δ + 2.0y1;
+    TwoδdivSqrt = 2.0τ / sqrt(δplus2y1);
+
+    S2FactorS1_plus1 = -(Threeδplus2y1 + TwoδdivSqrt)
+    S2FactorS1_minus1 = -(Threeδplus2y1 - TwoδdivSqrt)
+
+    rOne = -0.25 * a3 + 0.5 * (sqrt(δplus2y1) + sqrt(S2FactorS1_plus1))
+    rTwo = -0.25 * a3 + 0.5 * (sqrt(δplus2y1) - sqrt(S2FactorS1_plus1))
+    rThree= -0.25 * a3 + 0.5 * (-sqrt(δplus2y1) + sqrt(S2FactorS1_minus1))
+    rFour= -0.25 * a3 + 0.5 * (-sqrt(δplus2y1) - sqrt(S2FactorS1_minus1))
+
+    # r₄ < r₃ < rₚ < rₐ
+    r = sort([rOne, rTwo, rThree, rFour])
+    p = 2.0 * r[3] * r[4] / (M * (r[3] + r[4]))    # Eq. 23
+    e = (r[4] - r[3]) / (r[3] + r[4])   # Eq. 23
+
+    ## now calculate θmin
+    # coefficients of polynomial in Eq. E33
+    c0 = C / (a^2 * (1.0 - E^2))
+    c1 = -1.0 - (L^2 + C) / (a^2 * (1.0 - E^2))
+
+    θmin = acos(sqrt((-c1 - sqrt(c1^2 - 4c0))/2))
+    return p, e, θmin
+end
+
 # compute p, e, θ from (a, E, L, Q, C)
 function peθ(a::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M::Float64)
     # define coefficients of radial quartic (Eq. E24)
@@ -245,7 +297,6 @@ function peθ(a::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M::Flo
     @inbounds Threads.@threads for i=1:4
         # r[i] = -a3/4.0 + (1.0/2.0) * (s[i][1] * sqrt(δ + 2.0y1) + s[i][2] * sqrt(-(3.0δ + 2.0y1 + s[i][1] * 2.0τ / sqrt(δ + 2.0y1))))
         r[i] = -a3/4.0 + (1.0/2.0) * (s[i][1] * sqrt(δ + 2.0y1) + s[i][2] * sqrt(-(3.0δ + 2.0y1 + s[i][1] * 2.0τ / sqrt(δ + 2.0y1))))
-
     end
 
     # r₄ < r₃ < rₚ < rₐ
@@ -262,6 +313,39 @@ function peθ(a::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M::Flo
     return p, e, θmin
 end
 
+function KerrFreqs(a::Float64, p::Float64, e::Float64, θmin::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, rplus::Float64, rminus::Float64, M::Float64)
+    zm = cos(θmin)^2
+    zp = C / (a^2 * (1.0-E^2) * zm)    # Eq. E23
+    ra=p * M / (1.0 - e); rp=p * M / (1.0 + e);
+    A = M / (1.0 - E^2) - (ra + rp) / 2.0    # Eq. E20
+    B = a^2 * C / ((1.0 - E^2) * ra * rp)    # Eq. E21
+    r3 = A + sqrt(A^2 - B); r4 = A - sqrt(A^2 - B);    # Eq. E19
+
+    kr = sqrt((ra-rp) * (r3-r4) / ((ra-r3) * (rp-r4)))    # Eq. F5
+    kθ = sqrt(zm/zp)    # Eq. F5
+
+    K_kr = Elliptic.K(kr^2)
+    K_kθ = Elliptic.K(kθ^2)
+    E_kr = Elliptic.E(kr^2)
+    E_kθ = Elliptic.E(kθ^2)
+
+    hr = (ra-rp) / (ra-r3)
+    hp = (ra-rp) * (r3-rplus) / ((ra-r3) * (rp-rplus)); hm = (ra-rp) * (r3-rminus) / ((ra-r3) * (rp-rminus))
+
+    Πhr = Elliptic.Pi(hr, π/2, kr^2); Πhp = Elliptic.Pi(hp, π/2, kr^2); Πhm = Elliptic.Pi(hm, π/2, kr^2)
+    Πzm = Elliptic.Pi(zm, π/2, kθ^2); Πzp = Elliptic.Pi(-zp, π/2, kθ^2); 
+
+    γr = π * sqrt((1.0-E^2) * (ra-r3) * (rp-r4)) / (2.0K_kr)    # Eq. F3
+    γθ = π * a * sqrt((1.0-E^2)*zp)/(2.0K_kθ)    # Eq. F4
+    γϕ = 2.0a * γr / (π * (rplus - rminus) * sqrt((1.0-E^2) * (ra-r3)*(rp-r4))) * ((2.0M*E*rplus-a*L) / (r3-rplus) * (K_kr - (rp-r3)/(rp-rplus) * Πhp) - 
+        (2.0M*E*rminus-a*L) / (r3-rminus) * (K_kr - (rp-r3)/(rp-rminus) * Πhm)) + 2.0 * L * γθ / (π * a * sqrt((1.0-E^2)*zp)) * Πzm   # Eq. F8
+    γt = 4.0M^2 * E + 2.0a * E * sqrt(zp) / (π * sqrt(1.0-E^2)) * (K_kθ-E_kθ) * γθ + 2.0γr / (π * sqrt((1.0-E^2) * (ra-r3) * (rp-r4))) * (
+        0.5E * ((r3 * (ra+rp+r3) - ra * rp) * K_kr + (rp-r3) * (ra+rp+r3+r4) * Πhr + (ra-r3) * (rp-r4) * E_kr) + 2.0M * E * (r3 * K_kr + (rp-r3) * Πhr)+
+        2.0M / (rplus-rminus) * (((4.0M^2 * E-a*L) * rplus - 2.0M * a^2 * E)/(r3-rplus) * (K_kr - (rp-r3)/(rp-rplus) * Πhp) - 
+        ((4.0M^2 * E-a*L) * rminus - 2.0M * a^2 * E)/(r3-rminus) * (K_kr - (rp-r3)/(rp-rminus) * Πhm)))
+
+    return [γr, γθ, γϕ, γt]
+end
 end
 
 module KerrGeodesics
@@ -312,17 +396,17 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64,
     ra = p * M / (1 - e);   # Eq. 6.1
 
     # calculate integrals of motion from orbital parameters
-    E, L, Q = ConstantsOfMotion.ELQ(a, p, e, θi)   # dimensionless constants
+    E, L, Q = ConstantsOfMotion.ELQ(a, p, e, θi, M)   # dimensionless constants
 
     # initial conditions for Kerr geodesic trajectory
     ri = ra; τspan = (0.0, τmax); params = @SArray [a, M];
+    τ = 0:saveat:τmax |> collect
 
     ics = KerrGeodesics.boundKerr_ics(a, M, E, L, ri, θi, KerrMetric.g_tt,  KerrMetric.g_tϕ,  KerrMetric.g_rr, KerrMetric.g_θθ, KerrMetric.g_ϕϕ);
     prob = SecondOrderODEProblem(KerrGeodesics.geodesicEq, ics..., τspan, params);
-    sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat);
-
+    sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=τ);
+ 
     # deconstruct solution
-    τ = 0:saveat:τmax |> collect
     tdot = sol[1, :];
     rdot = sol[2, :];
     θdot = sol[3, :];

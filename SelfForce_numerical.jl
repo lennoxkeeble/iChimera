@@ -1,5 +1,5 @@
 # we write covariant vectors with underscores (e.g., for BL coordinates x^μ = xBL x_μ = x_BL)
-module SelfForce
+module SelfForce_numerical
 using LinearAlgebra
 using Combinatorics
 using BSplineKit
@@ -7,10 +7,11 @@ using StaticArrays
 using DelimitedFiles
 using DifferentialEquations
 using LsqFit
+using Dierckx
 using ..Kerr
+using ..FourierFit
+using ..FiniteDiff_5
 using ..HJEvolution
-using ..FourierFitGSL
-using ProgressBars
 
 import ..HarmonicCoords: g_tt_H, g_tr_H, g_rr_H, g_μν_H, gTT_H, gTR_H, gRR_H, gμν_H
 using ..HarmonicCoords
@@ -39,7 +40,7 @@ Qi(xH::AbstractArray, a::Float64, M::Float64, gTT::Function, gTΦ::Function, gRR
 Qij(xH::AbstractArray, a::Float64, M::Float64, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function) = gRR_H(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ) - ηij                        # outputs diagonal of Q^ij matrix (Eq. 56)
 Qμν(xH::AbstractArray, a::Float64, M::Float64, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function) = gμν_H(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ) - ημν                        # outputs Qμν matrix
 
-# ### NewKludge derivatives of the potential as written in the paper ###
+### NewKludge derivatives of the potential as written in the paper ###
 
 # # define partial derivatives of K (in harmonic coordinates)
 # # ∂ₖK: outputs float
@@ -79,7 +80,7 @@ Qμν(xH::AbstractArray, a::Float64, M::Float64, gTT::Function, gTΦ::Function, 
 #     return ∂K
 # end
 
-## Corrected NewKludge derivatives of the potential ###
+### Corrected NewKludge derivatives of the potential ###
 
 # define partial derivatives of K (in harmonic coordinates)
 # ∂ₖK: outputs float
@@ -133,8 +134,6 @@ STF(u::Vector, i::Int, j::Int, k::Int) = u[i] * u[j] * u[k] - (1.0/5.0) * dot(u,
 
 # define mass-ratio parameter
 η(q::Float64) = q/((1+q)^2)   # q = mass ratio
-mTot(m::Float64, M::Float64) = m + M;
-δm(m::Float64, M::Float64) = M - m;
 
 # TO-DO: SINCE WE SET M=1 and m=q (currently, at least) WE SHOULD, FOR CLARITY, REMOVE M FROM THESE EQUATIONS AND WRITE m->q
 
@@ -142,12 +141,8 @@ mTot(m::Float64, M::Float64) = m + M;
 M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * (1.0+m) * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
 ddotMij(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * (1.0+m) * ((-2.0δ(i, j)/3.0) * (dot(x_H, a_H) + dot(v_H, v_H)) + x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j])   # Eq. 7.17
 
-# M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0 - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
-# ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0 - m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
-
-M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = -η(m/M) * (1.0 - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
-ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = -η(m/M) * (1.0 - m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
-
+M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0-m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
+ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0-m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
 
 # second derivative of Mijkl, as defined in Eq. 85 (LONG EXPRESSION COPIED FROM MMA)
 ddotMijkl(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int, l::Int) = (1.0+m)*η(m/M)*(2.0*(x_H[j]*v_H[i] + x_H[i]*v_H[j])*(x_H[l]*v_H[k] + x_H[k]*v_H[l]) - (4.0*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3])*(x_H[k]*δ(j,l)*v_H[i] + x_H[j]*δ(k,l)*v_H[i] + x_H[k]*δ(i,l)*v_H[j] + x_H[i]*δ(k,l)*v_H[j] + x_H[j]*δ(i,l)*v_H[k] + x_H[i]*δ(j,l)*v_H[k] + x_H[l]*(δ(j,k)*v_H[i] + δ(i,k)*v_H[j] + δ(i,j)*v_H[k]) + (x_H[k]*δ(i,j) + x_H[j]*δ(i,k) + x_H[i]*δ(j,k))*v_H[l]))/7. - (2.0*(x_H[i]*x_H[l]*δ(j,k) + x_H[k]*(x_H[l]*δ(i,j) + x_H[j]*δ(i,l) + x_H[i]*δ(j,l)) + x_H[j]*(x_H[l]*δ(i,k) + x_H[i]*δ(k,l)))*(v_H[1]^2 + v_H[2]^2 + v_H[3]^2 + x_H[1]*a_H[1] + x_H[2]*a_H[2] + x_H[3]*a_H[3]))/7. + ((δ(i,l)*δ(j,k) + δ(i,k)*δ(j,l) + δ(i,j)*δ(k,l))*(8.0*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3])^2 + 4.0*(x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*(v_H[1]^2 + v_H[2]^2 + v_H[3]^2 + x_H[1]*a_H[1] + x_H[2]*a_H[2] + x_H[3]*a_H[3])))/35. + x_H[k]*x_H[l]*(2.0*v_H[i]*v_H[j] + x_H[j]*a_H[i] + x_H[i]*a_H[j]) + x_H[i]*x_H[j]*(2.0*v_H[k]*v_H[l] + x_H[l]*a_H[k] + x_H[k]*a_H[l]) - ((x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*(δ(k,l)*(2.0*v_H[i]*v_H[j] + x_H[j]*a_H[i] + x_H[i]*a_H[j]) + δ(j,l)*(2.0*v_H[i]*v_H[k] + x_H[k]*a_H[i] + x_H[i]*a_H[k]) + δ(i,l)*(2.0*v_H[j]*v_H[k] + x_H[k]*a_H[j] + x_H[j]*a_H[k]) + δ(j,k)*(2.0*v_H[i]*v_H[l] + x_H[l]*a_H[i] + x_H[i]*a_H[l]) + δ(i,k)*(2.0*v_H[j]*v_H[l] + x_H[l]*a_H[j] + x_H[j]*a_H[l]) + δ(i,j)*(2.0*v_H[k]*v_H[l] + x_H[l]*a_H[k] + x_H[k]*a_H[l])))/7.)
@@ -157,16 +152,6 @@ const ρ::Vector{Int} = [1, 2, 3]   # spacial indices
 const spatial_indices_3::Array = [[x, y, z] for x=1:3, y=1:3, z=1:3]   # array where each element kl = [[k, l, i] for i=1:3]
 const εkl::Array{Vector} = [[levicivita(spatial_indices_3[k, l, i]) for i = 1:3] for k=1:3, l=1:3]   # array where each element kl = [e_{kli} for i=1:3]
 
-# function S_ij(x_H::AbstractArray, xH::AbstractArray, vH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)   # Eq. 49
-#     s_ij=0.0
-#     @inbounds for k=1:3
-#         for l=1:3
-#             s_ij +=  STF(εkl[k, l], x_H, i, j) * xH[k] * vH[l]
-#         end
-#     end
-#     return η(m/M) * (1.0 - m) * s_ij
-# end
-
 function S_ij(x_H::AbstractArray, xH::AbstractArray, vH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)   # Eq. 49
     s_ij=0.0
     @inbounds for k=1:3
@@ -174,18 +159,8 @@ function S_ij(x_H::AbstractArray, xH::AbstractArray, vH::AbstractArray, m::Float
             s_ij +=  STF(εkl[k, l], x_H, i, j) * xH[k] * vH[l]
         end
     end
-    return -η(m/M) * (1.0 - m) * s_ij
+    return η(m/M) * (1.0-m) * s_ij
 end
-
-# function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::AbstractArray, xH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)
-#     S=0.0
-#     @inbounds for k=1:3
-#         for l=1:3
-#             S += -2.0δ(i, j) * (vH[l] * (xH[k] * dot(εkl[k, l], v_H) + vH[k] * dot(εkl[k, l], x_H)) + xH[k] * aH[l] * dot(εkl[k, l], x_H)) + 3.0 * vH[l] * (εkl[k, l][i] * (xH[k] * v_H[j] + x_H[j] * vH[k]) + εkl[k, l][j] * (xH[k] * v_H[i] + x_H[i] * vH[k])) + 3.0 * xH[k] * aH[l] * (εkl[k, l][i] * x_H[j] + εkl[k, l][j] * x_H[i])
-#         end
-#     end
-#     return η(m/M) * (1.0 - m) * S / 6.0
-# end
 
 function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::AbstractArray, xH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)
     S=0.0
@@ -194,7 +169,7 @@ function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::A
             S += -2.0δ(i, j) * (vH[l] * (xH[k] * dot(εkl[k, l], v_H) + vH[k] * dot(εkl[k, l], x_H)) + xH[k] * aH[l] * dot(εkl[k, l], x_H)) + 3.0 * vH[l] * (εkl[k, l][i] * (xH[k] * v_H[j] + x_H[j] * vH[k]) + εkl[k, l][j] * (xH[k] * v_H[i] + x_H[i] * vH[k])) + 3.0 * xH[k] * aH[l] * (εkl[k, l][i] * x_H[j] + εkl[k, l][j] * x_H[i])
         end
     end
-    return -η(m/M) * (1.0 - m) * S / 6.0
+    return η(m/M) * (1.0-m) * S / 6.0
 end
 
 # first derivative of Sijk, as defined in Eq. 86 (LONG EXPRESSION COPIED FROM MMA)
@@ -256,153 +231,24 @@ const index_pairs::Matrix{Tuple{Int64, Int64}} = [(i, j) for i=1:3, j=1:3];
 const fourier_fit_p0_path::String = "/home/lkeeble/GRSuite/fourier_fit_p0/";
 const fourier_fit_path::String = "/home/lkeeble/GRSuite/fourier_fit_params/";
 
-# this function will save files to create initial guesses 
-function moment_derivs_tr_p0!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, fit_fname_param::String)
-    for multipole in multipoles
-        @inbounds Threads.@threads for pair in index_pairs
-            i1, i2 = pair
-            if isequal(multipole, "mass_q_2nd")
-                fit_fname_save=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param     
-                Ω, fit, fitted_data = FourierFit.fourier_fit(tdata, Mij2data[i1, i2], Ωr, Ωθ, Ωϕ, nHarm)
-                fit_params = coef(fit)
-                @views Mij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-                @views Mij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Mij7[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                @views Mij8[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                # save fit #
-                open(fit_fname_save, "w") do io
-                    writedlm(io, coef(fit))
-                end
-            elseif isequal(multipole, "mass_o_2nd")
-                @inbounds for i3=1:3
-                    fit_fname_save=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_k_$(i3)_"*fit_fname_param         
-                    Ω, fit, fitted_data = FourierFit.fourier_fit(tdata, Mijk2data[i1, i2, i3], Ωr, Ωθ, Ωϕ, nHarm)
-                    fit_params = coef(fit)
-                    @views Mijk7[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                    @views Mijk8[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                end
-            elseif isequal(multipole, "current_1st")
-                fit_fname_save=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                Ω, fit, fitted_data = FourierFit.fourier_fit(tdata, Sij1data[i1, i2], Ωr, Ωθ, Ωϕ, nHarm)
-                fit_params = coef(fit)
-                @views Sij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Sij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                open(fit_fname_save, "w") do io
-                    writedlm(io, coef(fit))
-                end
-            end
-            
-            # # save fit #
-            # open(fit_fname_save, "w") do io
-            #     writedlm(io, coef(fit))
-            # end
+# calculate time derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
+function moment_derivs_tr!(h::Float64, compute_at::Int64, nPoints::Int64, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
+    @inbounds Threads.@threads for i=1:3
+        @inbounds for j=1:3
+            Mij5[i, j] = FiniteDiff_5.compute_third_derivative(compute_at,  Mij2data[i, j], h, nPoints)
+            Mij6[i, j] = FiniteDiff_5.compute_fourth_derivative(compute_at,  Mij2data[i, j], h, nPoints)
+            Mij7[i, j] = FiniteDiff_5.compute_fifth_derivative(compute_at,  Mij2data[i, j], h, nPoints)
+            Mij8[i, j] = FiniteDiff_5.compute_sixth_derivative(compute_at,  Mij2data[i, j], h, nPoints)
+
+            Sij5[i, j] = FiniteDiff_5.compute_fourth_derivative(compute_at,  Sij1data[i, j], h, nPoints)
+            Sij6[i, j] = FiniteDiff_5.compute_fifth_derivative(compute_at,  Sij1data[i, j], h, nPoints)
+            @inbounds for k=1:3
+                Mijk7[i, j, k] = FiniteDiff_5.compute_fifth_derivative(compute_at, Mijk2data[i, j, k], h, nPoints)
+                Mijk8[i, j, k] = FiniteDiff_5.compute_sixth_derivative(compute_at, Mijk2data[i, j, k], h, nPoints)
+            end 
         end
     end
 end
-
-function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit_fname_param::String)
-    for multipole in multipoles
-        @inbounds Threads.@threads for pair in index_pairs
-            fit_params = zeros(2 * n_freqs + 1);
-            i1, i2 = pair
-            if isequal(multipole, "mass_q_2nd")
-                # if we are computing the self force for the first time, we will load precomputed initial guess p0
-                # otherwise, we load the coefficients from the previous fit an overwrite
-                # fit_fname_p0=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_save=fourier_fit_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_load = isfile(fit_fname_save) ? fit_fname_save : fit_fname_p0
-                # isfile(fit_fname_load) ? p0=readdlm(fit_fname_load)[:] : p0 = Float64[];
-                Ω_fit = FourierFitGSL.GSL_fit!(tdata, Mij2data[i1, i2], nPoints, nHarm, chisq,  Ωr, Ωθ, Ωϕ, fit_params)
-                @views Mij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-                @views Mij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Mij7[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                @views Mij8[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                # save fit #
-                # open(fit_fname_save, "w") do io
-                #     writedlm(io, coef(fit))
-                # end
-            elseif isequal(multipole, "mass_o_2nd")
-                @inbounds for i3=1:3
-                    # fit_fname_p0=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_k_$(i3)_"*fit_fname_param 
-                    # fit_fname_save=fourier_fit_path * multipole * "_i_$(i1)_j_$(i2)_k_$(i3)_"*fit_fname_param
-                    # fit_fname_load = isfile(fit_fname_save) ? fit_fname_save : fit_fname_p0     
-                    Ω_fit = FourierFitGSL.GSL_fit!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ωr, Ωθ, Ωϕ, fit_params) 
-                    @views Mijk7[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                    @views Mijk8[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                end
-
-            elseif isequal(multipole, "current_1st")
-                # fit_fname_p0=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_save=fourier_fit_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_load = isfile(fit_fname_save) ? fit_fname_save : fit_fname_p0
-                # p0=readdlm(fit_fname_load)[:]
-                Ω_fit = FourierFitGSL.GSL_fit!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ωr, Ωθ, Ωϕ, fit_params)                 
-                @views Sij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Sij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                # # save fit #
-                # open(fit_fname_save, "w") do io
-                #     writedlm(io, coef(fit))
-                # end
-            end
-            
-            # # save fit #
-            # open(fit_fname_save, "w") do io
-            #     writedlm(io, coef(fit))
-            # end
-        end
-    end
-end
-
-# # calculate time derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
-# function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
-#     @inbounds Threads.@threads for i=1:3
-#         @inbounds for j=1:3
-#             MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(4))
-#             @views Mij5[i, j, :] = ND.(tdata, Ref(MijSpline), 3)  # differentiate 2nd derivative 5-2=3 times
-#             MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(5))
-#             @views Mij6[i, j, :] = ND.(tdata, Ref(MijSpline), 4)   # differentiate 2nd derivative 6-2=4 times
-#             @views MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(6))
-#             Mij7[i, j, :] = ND.(tdata, Ref(MijSpline), 5)   # differentiate 2nd derivative 7-2=5 times
-#             @views MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(7))
-#             Mij8[i, j, :] = ND.(tdata, Ref(MijSpline), 6)   # differentiate 2nd derivative 8-2=6 times
-
-#             SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(5))
-#             @views Sij5[i, j, :] = ND.(tdata, Ref(SijSpline), 4)   # differentiate 1st derivative 5-1=4 times
-#             SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(6))
-#             @views Sij6[i, j, :] = ND.(tdata, Ref(SijSpline), 5)   # differentiate 1st derivative 5-1=4 times
-
-#             @inbounds for k=1:3
-#                 MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(6))
-#                 @views Mijk7[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 5)   # differentiate 2nd derivative 7-2=5 times
-#                 MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(7))
-#                 @views Mijk8[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 6)   # differentiate 2nd derivative 8-2=6 times
-#             end 
-#         end
-#     end
-# end
-
-# # calculate time derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
-# function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
-#     @inbounds Threads.@threads for i=1:3
-#         @inbounds for j=1:3
-#             MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(10))
-#             @views Mij5[i, j, :] = ND.(tdata, Ref(MijSpline), 3)
-#             @views Mij6[i, j, :] = ND.(tdata, Ref(MijSpline), 4)
-#             @views Mij7[i, j, :] = ND.(tdata, Ref(MijSpline), 5)
-#             @views Mij8[i, j, :] = ND.(tdata, Ref(MijSpline), 6)
-
-#             SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(10))
-#             @views Sij5[i, j, :] = ND.(tdata, Ref(SijSpline), 4)
-#             @views Sij6[i, j, :] = ND.(tdata, Ref(SijSpline), 5)
-
-#             @inbounds for k=1:3
-#                 MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(10))
-#                 @views Mijk7[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 5) 
-#                 @views Mijk8[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 6) 
-#             end 
-#         end
-#     end
-# end
 
 # calculate time derivatives of the moments for the waveform computation
 function moment_derivs_wf!(tdata::AbstractArray, Mij2_data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mij2::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray)
@@ -561,10 +407,10 @@ function Ai_RR(t::Float64, xH::AbstractArray, v::Float64, v_H::AbstractArray, vH
 end
 
 function A1_β(t::Float64, xH::AbstractArray, v::Float64, v_H::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
-    ∂Vrr_∂t = SelfForce.∂Vrr_∂t(t, xH, Mij6, Mij8, Mijk8)
-    ∂Vrr_∂a = @SVector [SelfForce.∂Vrr_∂a(t, xH, Mij5, Mij7, Mijk7, i) for i =1:3]
-    ∂Virr_∂t = @SVector [SelfForce.∂Virr_∂t(t, xH, Mij7, Sij6, i) for i =1:3]
-    ∂Virr_∂a = @SMatrix [SelfForce.∂Virr_∂a(t, xH, Mij6, Sij5, j, i) for j=1:3, i=1:3]
+    ∂Vrr_∂t = SelfForce_numerical.∂Vrr_∂t(t, xH, Mij6, Mij8, Mijk8)
+    ∂Vrr_∂a = @SVector [SelfForce_numerical.∂Vrr_∂a(t, xH, Mij5, Mij7, Mijk7, i) for i =1:3]
+    ∂Virr_∂t = @SVector [SelfForce_numerical.∂Virr_∂t(t, xH, Mij7, Sij6, i) for i =1:3]
+    ∂Virr_∂a = @SMatrix [SelfForce_numerical.∂Virr_∂a(t, xH, Mij6, Sij5, j, i) for j=1:3, i=1:3]
     return [i==1 ? A_RR(t, xH, v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂a, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6) : Ai_RR(t, xH, v, v_H, vH, ∂Vrr_∂t, ∂Virr_∂t, ∂Vrr_∂a, ∂Virr_∂a, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, i-1) for i = 1:4]
 end
 
@@ -626,12 +472,12 @@ end
 # computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
 function A2_β(t::Float64, xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64, M::Float64, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mijk7::AbstractArray, Sij5::AbstractArray, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
     jBLH = HarmonicCoords.jBLH(xH, a, M)
-    ∂K_∂xk = @SVector [SelfForce.∂K_∂xk(xH, xBL, jBLH, a, M, g_μν, Γαμν, j) for j=1:3];
-    ∂Ki_∂xk = @SMatrix [SelfForce.∂Ki_∂xk(xH, rH, xBL, jBLH, a, M, g_μν, Γαμν, j, k) for j=1:3, k=1:3];
-    ∂Kij_∂xk = @SArray [SelfForce.∂Kij_∂xk(xH, rH, xBL, jBLH, a, M, g_μν, Γαμν, j, k, l) for j=1:3, k=1:3, l=1:3]
-    Q = SelfForce.Q(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ)
-    Qi = SelfForce.Qi(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ)
-    Qij = SelfForce.Qij(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ)
+    ∂K_∂xk = @SVector [SelfForce_numerical.∂K_∂xk(xH, xBL, jBLH, a, M, g_μν, Γαμν, j) for j=1:3];
+    ∂Ki_∂xk = @SMatrix [SelfForce_numerical.∂Ki_∂xk(xH, rH, xBL, jBLH, a, M, g_μν, Γαμν, j, k) for j=1:3, k=1:3];
+    ∂Kij_∂xk = @SArray [SelfForce_numerical.∂Kij_∂xk(xH, rH, xBL, jBLH, a, M, g_μν, Γαμν, j, k, l) for j=1:3, k=1:3, l=1:3]
+    Q = SelfForce_numerical.Q(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ)
+    Qi = SelfForce_numerical.Qi(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ)
+    Qij = SelfForce_numerical.Qij(xH, a, M, gTT, gTΦ, gRR, gThTh, gΦΦ)
 
     BRR = B_RR(xH, Qi, ∂K_∂xk, a, M, Γαμν, g_μν, gTT, gTΦ, gRR, gThTh, gΦΦ)
     BiRR = Bi_RR(xH, Qij, ∂K_∂xk, a, M, Γαμν, g_μν, gTT, gTΦ, gRR, gThTh, gΦΦ)
@@ -658,13 +504,14 @@ function aRRα(aSF_H::Vector{Float64}, aSF_BL::Vector{Float64}, t::Float64, xH::
     aSF_BL[2:4] = HarmonicCoords.aHtoBL(xH, zeros(3), aSF_H[2:4], a, M)
 end
 
+
 # returns the self-acceleration 4-vector
-function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit_fname_param::String)
+function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, dr_dt::Vector{Float64}, d2r_dt2::Vector{Float64}, θ::Vector{Float64}, dθ_dt::Vector{Float64}, d2θ_dt2::Vector{Float64}, ϕ::Vector{Float64}, dϕ_dt::Vector{Float64}, d2ϕ_dt2::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, h::Float64)
     # convert trajectories to BL coords
     @inbounds Threads.@threads for i in eachindex(t)
         xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
-        vBL[i] = Vector{Float64}([rdot[i], θdot[i], ϕdot[i]]);
-        aBL[i] = Vector{Float64}([rddot[i], θddot[i], ϕddot[i]]);
+        vBL[i] = Vector{Float64}([dr_dt[i], dθ_dt[i], dϕ_dt[i]]);             # Eq. 27: divide by dt/dτ to get velocity wrt BL time
+        aBL[i] = Vector{Float64}([d2r_dt2[i], d2θ_dt2[i], d2ϕ_dt2[i]]);      # divide by (dt/dτ)² to get accelerations wrt BL time
     end
     @inbounds Threads.@threads for i in eachindex(t)
         xH[i] = HarmonicCoords.xBLtoH(xBL[i], a, M)
@@ -682,15 +529,18 @@ function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArra
     end
     
     # calculate ddotMijk, ddotMijk, dotSij "analytically"
-    SelfForce.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
+    SelfForce_numerical.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
 
     # calculate moment derivatives numerically at t = tF
-    # SelfForce.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6)
+    # SelfForce_numerical.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6)
 
-    SelfForce.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit_fname_param)
+    # SelfForce_numerical.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, fit_fname_param)
+
+    SelfForce_numerical.moment_derivs_tr!(h, compute_at, size(t, 1), Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6)
+
 
     # calculate self force in BL and harmonic coordinates
-    SelfForce.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)
+    SelfForce_numerical.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)
 end
 
 function EvolveConstants(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64, aSF_BL::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray, CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
@@ -721,77 +571,7 @@ function EvolveConstants(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::F
     #### p, e, θmin ####
 
     # computing p, e, θmin_BL from updated constants
-    pp, ee, θθ = Kerr.ConstantsOfMotion.peθ_gsl(a, last(EE), last(LL), last(QQ), last(CC), 1.0)
-    append!(pArray, ones(nPoints) * pp)
-    append!(ecc, ones(nPoints) * ee)
-    append!(θmin, ones(nPoints) * θθ)
-end
-
-Killing_temporal_H(a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, M::Float64) = @SVector [Kerr.KerrMetric.g_tt(t, r, θ, ϕ, a, M), Kerr.KerrMetric.g_tϕ(t, r, θ, ϕ, a, M) * HarmonicCoords.∂ϕ_∂xH(xH, a, M),
-Kerr.KerrMetric.g_tϕ(t, r, θ, ϕ, a, M) * HarmonicCoords.∂ϕ_∂yH(xH, a, M), Kerr.KerrMetric.g_tϕ(t, r, θ, ϕ, a, M) * HarmonicCoords.∂ϕ_∂zH(xH, a, M)]
-Killing_axial_H(a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, M::Float64) = @SVector [Kerr.KerrMetric.g_tϕ(t, r, θ, ϕ, a, M), Kerr.KerrMetric.g_ϕϕ(t, r, θ, ϕ, a, M) * HarmonicCoords.∂ϕ_∂xH(xH, a, M),
-Kerr.KerrMetric.g_ϕϕ(t, r, θ, ϕ, a, M) * HarmonicCoords.∂ϕ_∂yH(xH, a, M), Kerr.KerrMetric.g_ϕϕ(t, r, θ, ϕ, a, M) * HarmonicCoords.∂ϕ_∂zH(xH, a, M)]
-function Killing_tensor_H(a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, M::Float64) 
-    tensor = zeros(4, 4)
-    jBLH = HarmonicCoords.jBLH(xH, a, M)
-    ξtt = Kerr.KerrMetric.ξ_tt(t, r, θ, ϕ, a, M) 
-    ξtϕ = Kerr.KerrMetric.ξ_tϕ(t, r, θ, ϕ, a, M) 
-    ξrr = Kerr.KerrMetric.ξ_rr(t, r, θ, ϕ, a, M) 
-    ξθθ = Kerr.KerrMetric.ξ_θθ(t, r, θ, ϕ, a, M) 
-    ξϕϕ = Kerr.KerrMetric.ξ_ϕϕ(t, r, θ, ϕ, a, M)
-
-    # time components
-    tensor[1, 1] = ξtt
-    tensor[1, 2] = ξtϕ * jBLH[3, 1]; tensor[2, 1] = tensor[1, 2]
-    tensor[1, 3] = ξtϕ * jBLH[3, 2]; tensor[3, 1] = tensor[1, 3]
-    tensor[1, 4] = ξtϕ * jBLH[3, 3]; tensor[4, 1] = tensor[1, 4]
-
-    # spatial components
-    tensor[2, 2] = ξrr * jBLH[1, 1] * jBLH[1, 1] + ξθθ * jBLH[2, 1] * jBLH[2, 1] * ξϕϕ * jBLH[3, 1] * jBLH[3, 1]
-    tensor[2, 3] = ξrr * jBLH[1, 1] * jBLH[1, 2] + ξθθ * jBLH[2, 1] * jBLH[2, 2] * ξϕϕ * jBLH[3, 1] * jBLH[3, 2]; tensor[3, 2] = tensor[2, 3]
-    tensor[2, 4] = ξrr * jBLH[1, 1] * jBLH[1, 3] + ξθθ * jBLH[2, 1] * jBLH[2, 3] * ξϕϕ * jBLH[3, 1] * jBLH[3, 3]; tensor[4, 2] = tensor[2, 4]
-
-    tensor[3, 3] = ξrr * jBLH[1, 2] * jBLH[1, 2] + ξθθ * jBLH[2, 2] * jBLH[2, 2] * ξϕϕ * jBLH[3, 2] * jBLH[3, 2]
-    tensor[3, 4] = ξrr * jBLH[1, 2] * jBLH[1, 3] + ξθθ * jBLH[2, 2] * jBLH[2, 3] * ξϕϕ * jBLH[3, 2] * jBLH[3, 3]; tensor[4, 3] = tensor[3, 4]
-
-    tensor[4, 4] = ξrr * jBLH[1, 3] * jBLH[1, 3] + ξθθ * jBLH[2, 3] * jBLH[2, 3] * ξϕϕ * jBLH[3, 3] * jBLH[3, 3]
-
-    return tensor
-end
-
-function EvolveConstants_H(Δt::Float64, a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64, aSF_H::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray, CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
-    temporal_killing = Killing_temporal_H(a, xH, t, r, θ, ϕ, M)
-    axial_killing = Killing_axial_H(a, xH, t, r, θ, ϕ, M)
-    tensor_killing = Killing_tensor_H(a, xH, t, r, θ, ϕ, M)
-
-    #### ELQ ####
-    push!(Edot, -(temporal_killing[1] * aSF_H[1] + temporal_killing[2] * aSF_H[2] + temporal_killing[3] * aSF_H[3] + temporal_killing[4] * aSF_H[4])/Γ)    # Eq. 30
-    push!(Ldot, (axial_killing[1] * aSF_H[1] + axial_killing[2] * aSF_H[2] + axial_killing[3] * aSF_H[3] + axial_killing[4] * aSF_H[4])/Γ)    # Eq. 31
-    
-    dQ_dt = 0
-    @inbounds for α=1:4, β=1:4
-        dQ_dt += 2 * tensor_killing[α, β] * (α==1 ? 1. : α==2 ? rdot : α==3 ? θdot : ϕdot) * aSF_H[β]    # Eq. 32
-    end
-    push!(Qdot, dQ_dt)
-
-    push!(Cdot, dQ_dt + 2 * (a * last(EE) - last(LL)) * (last(Ldot) - a * last(Edot)))
-
-    # constants of motion
-    append!(EE, ones(nPoints) * (last(EE) + last(Edot) * Δt))
-    append!(LL, ones(nPoints) * (last(LL) + last(Ldot) * Δt))
-    append!(QQ, ones(nPoints) * (last(QQ) + last(Qdot) * Δt))
-    append!(CC, ones(nPoints) * (last(CC) + last(Cdot) * Δt))
-
-    # since we compute the self force at the end of each piecewise geodesic, the flux in between will be zero
-    append!(Edot, zeros(nPoints-1))
-    append!(Ldot, zeros(nPoints-1))
-    append!(Qdot, zeros(nPoints-1))
-    append!(Cdot, zeros(nPoints-1))
-
-    #### p, e, θmin ####
-
-    # computing p, e, θmin_BL from updated constants
-    pp, ee, θθ = Kerr.ConstantsOfMotion.peθ_gsl(a, last(EE), last(LL), last(QQ), last(CC), 1.0)
+    pp, ee, θθ = Kerr.ConstantsOfMotion.peθ(a, last(EE), last(LL), last(QQ), last(CC), 1.0)
     append!(pArray, ones(nPoints) * pp)
     append!(ecc, ones(nPoints) * ee)
     append!(θmin, ones(nPoints) * θθ)
@@ -802,7 +582,20 @@ Z_2(a::Float64, M::Float64) = sqrt(3 * (a / M)^2 + Z_1(a, M)^2)
 LSO_r(a::Float64, M::Float64) = M * (3 + Z_2(a, M) - sqrt((3 - Z_1(a, M)) * (3 + Z_1(a, M) * 2 * Z_2(a, M))))   # retrograde LSO
 LSO_p(a::Float64, M::Float64) = M * (3 + Z_2(a, M) + sqrt((3 - Z_1(a, M)) * (3 + Z_1(a, M) * 2 * Z_2(a, M))))   # prograde LSO
 
-function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMultipoleFit::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, saveat::Float64=0.5, Δti::Float64=1.0, reltol::Float64=1e-16, abstol::Float64=1e-16; data_path::String="Data/")
+dr2_dt2(t::Float64, r::Float64, θ::Float64, ϕ::Float64, drdt::Float64, dθdt::Float64, dϕdt::Float64, a::Float64, M::Float64) = -(drdt)^2 * Kerr.KerrMetric.Γrrr(t, r, θ, ϕ, a, M) - 2.0*drdt*dθdt*Kerr.KerrMetric.Γrrθ(t, r, θ, ϕ, a, M)-Kerr.KerrMetric.Γrtt(t, r, θ, ϕ, a, M)-
+dϕdt*(2.0Kerr.KerrMetric.Γrtϕ(t, r, θ, ϕ, a, M) + dϕdt*Kerr.KerrMetric.Γrϕϕ(t, r, θ, ϕ, a, M))+2.0drdt^2*(dϕdt * Kerr.KerrMetric.Γtrϕ(t, r, θ, ϕ, a, M)+Kerr.KerrMetric.Γttr(t, r, θ, ϕ, a, M)) + dθdt*(-dθdt*Kerr.KerrMetric.Γrθθ(t, r, θ, ϕ, a, M)+
+2.0drdt*(Kerr.KerrMetric.Γttθ(t, r, θ, ϕ, a, M)+dϕdt*Kerr.KerrMetric.Γtθϕ(t, r, θ, ϕ, a, M)))
+
+
+dθ2_dt2(t::Float64, r::Float64, θ::Float64, ϕ::Float64, drdt::Float64, dθdt::Float64, dϕdt::Float64, a::Float64, M::Float64) = 2.0drdt * dθdt * dϕdt * Kerr.KerrMetric.Γtrϕ(t, r, θ, ϕ, a, M)+2.0drdt * dθdt * Kerr.KerrMetric.Γttr(t, r, θ, ϕ, a, M)+
+2.0dθdt^2*Kerr.KerrMetric.Γttθ(t, r, θ, ϕ, a, M)+2.0dθdt^2*dϕdt * Kerr.KerrMetric.Γtθϕ(t, r, θ, ϕ, a, M)-drdt^2*Kerr.KerrMetric.Γθrr(t, r, θ, ϕ, a, M)-2.0drdt*dθdt*Kerr.KerrMetric.Γθrθ(t, r, θ, ϕ, a, M)-Kerr.KerrMetric.Γθtt(t, r, θ, ϕ, a, M)-
+2.0dϕdt*Kerr.KerrMetric.Γθtϕ(t, r, θ, ϕ, a, M)-dθdt^2*Kerr.KerrMetric.Γθθθ(t, r, θ, ϕ, a, M)-dϕdt^2*Kerr.KerrMetric.Γθϕϕ(t, r, θ, ϕ, a, M)
+
+dϕ2_dt2(t::Float64, r::Float64, θ::Float64, ϕ::Float64, drdt::Float64, dθdt::Float64, dϕdt::Float64, a::Float64, M::Float64) = 2.0*(drdt*dϕdt^2*Kerr.KerrMetric.Γtrϕ(t, r, θ, ϕ, a, M)+
+drdt*dϕdt*Kerr.KerrMetric.Γttr(t, r, θ, ϕ, a, M)+dθdt*dϕdt*Kerr.KerrMetric.Γttθ(t, r, θ, ϕ, a, M)+dθdt*dϕdt^2*Kerr.KerrMetric.Γtθϕ(t, r, θ, ϕ, a, M)-drdt*dϕdt*Kerr.KerrMetric.Γϕrϕ(t, r, θ, ϕ, a, M)-drdt*Kerr.KerrMetric.Γϕtr(t, r, θ, ϕ, a, M)-
+dθdt*Kerr.KerrMetric.Γϕtθ(t, r, θ, ϕ, a, M)-dθdt*dϕdt*Kerr.KerrMetric.Γϕθϕ(t, r, θ, ϕ, a, M))
+
+function compute_inspiral!(τOrbit::Float64, nPoints::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, h::Float64=0.15, saveat::Float64=0.5, Δti::Float64=1.0, reltol::Float64=1e-16, abstol::Float64=1e-16; data_path::String="Data/")
     # create arrays for trajectory
     t = Float64[]; r = Float64[]; θ = Float64[]; ϕ = Float64[];
     tdot = Float64[]; rdot = Float64[]; θdot = Float64[]; ϕdot = Float64[];
@@ -815,7 +608,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
     Mij2_data = [Float64[] for i=1:3, j=1:3]
     Sij1_data = [Float64[] for i=1:3, j=1:3]
     # length of arrays for trajectory: we fit into the "past" and "future", so the arrays will have an odd size (see later code)
-    fit_array_length = iseven(nPointsMultipoleFit) ? nPointsMultipoleFit+1 : nPointsMultipoleFit
+    fit_array_length = 11
     xBL = [Float64[] for i in 1:fit_array_length]
     vBL = [Float64[] for i in 1:fit_array_length]
     aBL = [Float64[] for i in 1:fit_array_length]
@@ -845,8 +638,6 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         ddϕ = Kerr.KerrGeodesics.ϕddot(u..., du..., params...) + aSF_BL_temp[4]
         @SArray [ddt, ddr, ddθ, ddϕ]
     end
-
-    fit_fname_params="fit_params_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_nHarm_$(nHarm).txt";
 
     # orbital parameters
     params = @SArray [a, M];
@@ -915,13 +706,8 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         # println(length(tt))
         # println(τspan)
         # break out of loop when LSO reached- either the integration terminated, or there is a repeated value of t (due to ODE solver feature)
-        # if (length(sol[1, :]) < nPoints+1) | !all(≠(0), diff(tt))
-        #     println("Integration terminated at t = $(last(t))")
-        #     println("(nPoints+1) - len(sol) = $(nPoints+1-length(sol[1,:]))")
-        #     break
-        if (length(sol[1, :]) < nPoints+1)
+        if (length(sol[1, :]) < nPoints+1) | !all(≠(0), diff(tt))
             println("Integration terminated at t = $(last(t))")
-            println("(nPoints+1) - len(sol) = $(nPoints+1-length(sol[1,:]))")
             break
         elseif length(tt)>nPoints+1
             # deconstruct solution
@@ -963,6 +749,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         # we first compute the fundamental frequencies in order to determine over what interval of time a fit needs to be carried out
         ω = Kerr.ConstantsOfMotion.KerrFreqs(a, last(pArray), last(ecc), last(θmin)); Ωr, Ωθ, Ωϕ = ω[1:3]/ω[4];
         τFit = minimum(@. 2π/ω[1:3]);
+        nPointsMultipoleFit = floor(Int, 1 + τFit/h)
 
         # Our fitting method is as follows: we want to perform our fit over the 'future' and 'past' of the point at which we wish to compute the self-force. In other words, we would like 
         # to perform a fit to data, and take the values of the fit at the center of the arrays (this has obvious benefits since interpolation/numerical differentiation schemes often
@@ -972,9 +759,9 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         # and will be discarded thereafter.
         
         # begin by carrying out fit from τ0 to τF-τFit/2
-        saveat_multipole_fit = (τFit)/(nPointsMultipoleFit-1)
+        saveat_multipole_fit = h
         τSpanMultipoleFit = (τspan[2] - saveat_multipole_fit * (nPointsMultipoleFit ÷ 2), τspan[2] + saveat_multipole_fit * (nPointsMultipoleFit ÷ 2))    # this range ensures that τF is the center point
-        compute_at = 1 + (nPointsMultipoleFit÷2)    # this will be the index of τF in the trajectory data arrays
+        compute_at = Int(1 + (nPointsMultipoleFit÷2))    # this will be the index of τF in the trajectory data arrays
 
         τspanFit0 = (τ0, τSpanMultipoleFit[1])
         prob = SecondOrderODEProblem(geodesicEq, icsMultipoleFit..., τspanFit0, params);
@@ -1004,28 +791,31 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         else
             sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_multipole_fit);
         end
+        ttdot = sol[1, (compute_at-5):(compute_at+5)];
+        dr_dt = @. sol[2, (compute_at-5):(compute_at+5)] / ttdot;
+        dθ_dt = sol[3, (compute_at-5):(compute_at+5)] / ttdot;
+        dϕ_dt = sol[4, (compute_at-5):(compute_at+5)] / ttdot;
+        tt = sol[5, (compute_at-5):(compute_at+5)];
+        rr = sol[6, (compute_at-5):(compute_at+5)];
+        θθ = sol[7, (compute_at-5):(compute_at+5)];
+        ϕϕ= sol[8, (compute_at-5):(compute_at+5)];
 
-        ttdot = sol[1, 1:fit_array_length];
-        rrdot = sol[2, 1:fit_array_length];
-        θθdot = sol[3, 1:fit_array_length];
-        ϕϕdot = sol[4, 1:fit_array_length];
-        tt = sol[5, 1:fit_array_length];
-        rr = sol[6, 1:fit_array_length];
-        θθ = sol[7, 1:fit_array_length];
-        ϕϕ= sol[8, 1:fit_array_length];
+        ττ=sol.t[(compute_at-5):(compute_at+5)];
+        compute_at_2=6
 
-        ttddot = Kerr.KerrGeodesics.tddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
-        rrddot = Kerr.KerrGeodesics.rddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
-        θθddot = Kerr.KerrGeodesics.θddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
-        ϕϕddot = Kerr.KerrGeodesics.ϕddot.(tt, rr, θθ, ϕϕ, ttdot, rrdot, θθdot, ϕϕdot, params...);
+        # substitute solution back into geodesic equation to find second derivatives of BL coordinates (wrt t)
+        r_ddot = HJEvolution.dr2_dt2.(tt, rr, θθ, ϕϕ, dr_dt, dθ_dt, dϕ_dt, a, M)
+        θ_ddot = HJEvolution.dθ2_dt2.(tt, rr, θθ, ϕϕ, dr_dt, dθ_dt, dϕ_dt, a, M)
+        ϕ_ddot = HJEvolution.dϕ2_dt2.(tt, rr, θθ, ϕϕ, dr_dt, dθ_dt, dϕ_dt, a, M)
 
-        println("Check that we are computing the self-force at the right value:\n τF=$(τspan[2]), compute_at=$(sol.t[compute_at])")
+
+        println("Check that we are computing the self-force at the right value:\n τF=$(τspan[2]), compute_at=$(ττ[compute_at_2])")
         println("Length of solution = $(size(ttdot, 1))")
 
         # calculate SF at each point of trajectory and take the sum
-        SelfForce.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt, ttdot, rr, rrdot, rrddot, θθ, θθdot, θθddot, ϕϕ, ϕϕdot, ϕϕddot, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m,compute_at, nHarm, Ωr, Ωθ, Ωϕ, fit_fname_params);
-
-        EvolveConstants(saveat, a, tt[compute_at], rr[compute_at], θθ[compute_at], ϕϕ[compute_at], ttdot[compute_at], rrdot[compute_at], θθdot[compute_at], ϕϕdot[compute_at], aSF_BL_temp, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin, M, nPoints)
+        SelfForce_numerical.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, ττ, ttdot, rr, rrdot, rrddot, θθ, θθdot, θθddot, ϕϕ, ϕϕdot, ϕϕddot, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m,compute_at_2, h);
+        selfAcc!(aSF_H, aSF_BL, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, t, r, dr_dt, d2r_dt2, θ, dθ_dt, d2θ_dt2, ϕ, dϕ_dt, d2ϕ_dt2, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, h)
+        EvolveConstants(saveat, a, tt[compute_at_2], rr[compute_at_2], θθ[compute_at_2], ϕϕ[compute_at_2], ttdot[compute_at_2], rrdot[compute_at_2], θθdot[compute_at_2], ϕϕdot[compute_at_2], aSF_BL_temp, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin, M, nPoints)
         # store self force values
         push!(aSF_H, aSF_H_temp)
         push!(aSF_BL, aSF_BL_temp)
@@ -1052,14 +842,14 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
 
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_H = hcat(aSF_H...)
-    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol)_nHarm_$(nHarm)_Mij_Sij_n_fit_$(nPointsMultipoleFit).txt"
+    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_H)
     end
 
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_BL = hcat(aSF_BL...)
-    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol)_nHarm_$(nHarm)_Mij_Sij_n_fit_$(nPointsMultipoleFit).txt"
+    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_BL)
     end
@@ -1071,7 +861,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
     τRange = 0.0:saveat:(n_OrbPoints-1) * saveat |> collect
     # save trajectory- rows are: τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
     sol = transpose(stack([τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot]))
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol)_nHarm_$(nHarm)_Mij_Sij_n_fit_$(nPointsMultipoleFit).txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(ODE_filename, "w") do io
         writedlm(io, sol)
     end
@@ -1082,12 +872,12 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
     derivs = (Edot, Ldot, Qdot, Cdot)
     derivs = vcat(transpose.(derivs)...)
 
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol)_nHarm_$(nHarm)_Mij_Sij_n_fit_$(nPointsMultipoleFit).txt"
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(constants_filename, "w") do io
         writedlm(io, constants)
     end
 
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tstep_$(saveat)_tol_$(reltol)_nHarm_$(nHarm)_Mij_Sij_n_fit_$(nPointsMultipoleFit).txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(constants_derivs_filename, "w") do io
         writedlm(io, derivs)
     end
@@ -1096,18 +886,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
     println("ODE saved to: " * ODE_filename)
 end
 
-#=
-    This comment explains the methodology in the function below. At the end of each piecewise geodesic, we must compute the self-force in order to update the orbital 
-    parameters and move to the next geodesic piece in the trajectory. The method we employ in computing the self-force is to fit the multipole moments
-    to a fourier series expanded in terms of the fundamental frequencies, and then take high-order derivates from a simple formula. Empirically, this fit
-    is ``best'' at the middle of the data set (e.g., it tends to be worse at the edges, which is common in interpolation methods, for example). As a result,
-    we would like the point at which we wish to compute the high-order derivatives (and the self-force) to be at the midpoint of the data array. Suppose we
-    want to compute the self force at t=T. Then, we evolve the geodesic past t=T into the future, using an odd number of points, and then perform the fit
-    to data for a time range which lies an odd number of points in the future and past of t=T, so that t=T is exactly at the midpoint of the data arrays. Note
-    we will discard of the data for t>T since it was only computed as an auxiliary for the fitting process.
-=#
-
-function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-12, abstol::Float64=1e-10; data_path::String="Data/")
+function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, h::Float64=0.15, reltol::Float64=1e-12, abstol::Float64=1e-10; data_path::String="Data/")
     # create arrays for trajectory
     t = Float64[]; r = Float64[]; θ = Float64[]; ϕ = Float64[];
     dt_dτ = Float64[]; dr_dt = Float64[]; dθ_dt = Float64[]; dϕ_dt = Float64[];
@@ -1120,7 +899,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     Mij2_data = [Float64[] for i=1:3, j=1:3]
     Sij1_data = [Float64[] for i=1:3, j=1:3]
     # length of arrays for trajectory: we fit into the "past" and "future", so the arrays will have an odd size (see later code)
-    fit_array_length = iseven(nPoints) ? nPoints+1 : nPoints
+    fit_array_length = 11
     xBL = [Float64[] for i in 1:fit_array_length]
     vBL = [Float64[] for i in 1:fit_array_length]
     aBL = [Float64[] for i in 1:fit_array_length]
@@ -1143,8 +922,6 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     aSF_BL_temp = zeros(4)
     aSF_H_temp = zeros(4)
 
-    fit_fname_params="fit_params_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_nHarm_$(nHarm).txt";
-
     # compute apastron
     ra = p * M / (1 - e);
 
@@ -1163,8 +940,6 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     pArray = ones(nPoints) * p;
     ecc = ones(nPoints) * e;
     θmin = ones(nPoints) * θi;
-
-    rplus = Kerr.KerrMetric.rplus(a, M); rminus = Kerr.KerrMetric.rminus(a, M);
     # initial condition for Kerr geodesic trajectory
     t0 = 0.0
     ics = HJEvolution.HJ_ics(ra, p, e, M);
@@ -1188,19 +963,12 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
         # array of params for ODE solver
         params = @SArray [a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm]
 
-        # compute fundamental frequencies in order to determine geodesic time range
-        ω = Kerr.ConstantsOfMotion.KerrFreqs(a, p_t, e_t, θmin_t, E_t, L_t, Q_t, C_t, rplus, rminus, M);    # Mino time frequencies
-        Ω=ω[1:3]/ω[4]; Ωr=Ω[1]; Ωθ=Ω[2]; Ωϕ=Ω[3];   # BL time frequencies
-
-        T_Fit = 0.5 * minimum(@. 2π/Ω);    # we want to perform each fit over a set of points which span a physical time range T_fit
-        saveat = T_Fit / (nPoints-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
-
         # to compute the self force at a point, we must overshoot the solution into the future
-        tF = t0 + (nPoints-1) * saveat + (nPoints÷2) * saveat   # evolve geodesic up to tF
-        total_num_points = nPoints+(nPoints÷2)   # total number of points in geodesic since we overshoot
-        Δti=saveat;    # initial time step for geodesic integration
+        tF = t0 + (nPoints-1) * h + (fit_array_length÷2) * h   # evolve geodesic up to tF
+        total_num_points = nPoints+(fit_array_length÷2)   # total number of points in geodesic since we overshoot
+        Δti=h;    # initial time step for geodesic integration
 
-        saveat_t = range(t0, tF, total_num_points) |> collect
+        saveat_t = t0:h:tF |> collect    # saveat time array for solver
         tspan=(t0, tF)
 
         # stop when it reaches LSO
@@ -1226,12 +994,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
 
         if (length(sol[1, :]) < total_num_points)
             println("Integration terminated at t = $(last(t))")
-            println("total_num_points - len(sol) = $(total_num_points-length(sol[1,:]))")
-            println("t0 = $(t0), tF = $(tF), total_num_points = $(total_num_points)\n")
-            println("saveat_t:")
-            println(saveat_t)
-            println("\nsol.t:")
-            println(sol.t)
+            println("(nPoints+1) - len(sol) = $(nPoints+1-length(sol[1,:]))")
             break
         elseif length(tt)>total_num_points
             tt = sol.t[:total_num_points];
@@ -1267,24 +1030,15 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
         append!(dϕ_dt, ϕ_dot[1:nPoints]); append!(d2ϕ_dt2, ϕ_ddot[1:nPoints]);
         
         ###### COMPUTE SELF-FORCE ######
-        fit_index_0 = nPoints - (nPoints÷2); fit_index_1 = nPoints + (nPoints÷2); compute_at=(nPoints÷2)+1; n_freqs=FourierFitGSL.compute_num_freqs(nHarm); chisq=[0.0];
-        SelfForce.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt[fit_index_0:fit_index_1], 
+        fit_index_0 = nPoints - (fit_array_length÷2); fit_index_1 = nPoints + (fit_array_length÷2); compute_at=fit_array_length÷2+1;
+        SelfForce_numerical.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt[fit_index_0:fit_index_1], 
         rr[fit_index_0:fit_index_1], r_dot[fit_index_0:fit_index_1], r_ddot[fit_index_0:fit_index_1], θθ[fit_index_0:fit_index_1], 
         θ_dot[fit_index_0:fit_index_1], θ_ddot[fit_index_0:fit_index_1], ϕϕ[fit_index_0:fit_index_1], ϕ_dot[fit_index_0:fit_index_1], 
         ϕ_ddot[fit_index_0:fit_index_1], Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, 
-        Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, nHarm, Ωr, Ωθ, Ωϕ, fit_array_length, n_freqs, chisq, fit_fname_params);
+        Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, h);
 
-        # println("t0 = $(t0)")
-        # println("tF = $(tF)")
-        # println("tF-t0 = $(tF-t0)")
-        # println("E_0 = $(last(EE))")
-
-        # EvolveConstants_H(saveat, a, xH[compute_at], tt[nPoints], rr[nPoints], θθ[nPoints], ϕϕ[nPoints], Γ[nPoints], r_dot[nPoints], θ_dot[nPoints], ϕ_dot[nPoints], aSF_H_temp, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin, M, nPoints)
         EvolveConstants(tt[nPoints]-tt[1], a, tt[nPoints], rr[nPoints], θθ[nPoints], ϕϕ[nPoints], Γ[nPoints], r_dot[nPoints], θ_dot[nPoints], ϕ_dot[nPoints], aSF_BL_temp, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin, M, nPoints)
-        # println("Edot = $(Edot[length(Edot)-(nPoints-1)])")
-        # println("Edot * Δt = $(Edot[length(Edot)-(nPoints-1)] * (tF-t0))")
-        # println("ΔE = $(last(EE)-EE[length(EE)-nPoints])")
-
+        
         # store self force values
         push!(aSF_H, aSF_H_temp)
         push!(aSF_BL, aSF_BL_temp)
@@ -1314,14 +1068,15 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     mkpath(data_path)
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_H = hcat(aSF_H...)
-    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_H)
     end
 
+
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_BL = hcat(aSF_BL...)
-    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_BL)
     end
@@ -1332,7 +1087,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     # save trajectory
     # save trajectory- rows are: τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
     sol = transpose(stack([t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ]))
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(ODE_filename, "w") do io
         writedlm(io, sol)
     end
@@ -1343,12 +1098,12 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     derivs = (Edot, Ldot, Qdot, Cdot)
     derivs = vcat(transpose.(derivs)...)
 
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(constants_filename, "w") do io
         writedlm(io, constants)
     end
 
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_h_$(h)_tol_$(reltol)_fdm.txt"
     open(constants_derivs_filename, "w") do io
         writedlm(io, derivs)
     end

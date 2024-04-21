@@ -20,6 +20,13 @@ dependencies = [
     "DelimitedFiles",
     "Combinatorics",
     "Roots",
-    "LinearAlgebra"
+    "LinearAlgebra",
+    "PolynomialRoots",
+    "LsqFit",
+    "BenchmarkTools",
+    "JLD2",
+    "FileIO",
+    "GSL",
+    "ProgressBars"
 ]
 Pkg.add(dependencies)
