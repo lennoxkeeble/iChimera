@@ -4,11 +4,11 @@ In this module we evolve the separated Hamilton Jacobi equation with respect to 
 for further details.
 
 =#
-include("/home/lkeeble/GRSuite/Testing/BL_time_derivs/d2x.jl")
-include("/home/lkeeble/GRSuite/Testing/BL_time_derivs/d3x.jl")
-include("/home/lkeeble/GRSuite/Testing/BL_time_derivs/d4x.jl")
-include("/home/lkeeble/GRSuite/Testing/BL_time_derivs/d5x.jl")
-include("/home/lkeeble/GRSuite/Testing/BL_time_derivs/d6x.jl")
+include("/home/lkeeble/GRSuite/Testing/BL_time_coordinate_derivs/d2x.jl")
+include("/home/lkeeble/GRSuite/Testing/BL_time_coordinate_derivs/d3x.jl")
+include("/home/lkeeble/GRSuite/Testing/BL_time_coordinate_derivs/d4x.jl")
+include("/home/lkeeble/GRSuite/Testing/BL_time_coordinate_derivs/d5x.jl")
+include("/home/lkeeble/GRSuite/Testing/BL_time_coordinate_derivs/d6x.jl")
 include("/home/lkeeble/GRSuite/Testing/Test_modules/MinoTimeBLTimeDerivs.jl");
 
 module MinoDerivs
@@ -99,15 +99,15 @@ function dϕ_dλ(t::Float64, psi::Float64, chi::Float64, ϕ::Float64, a::Float64
 end
 
 # initial conditions for bound kerr orbits starting in equatorial plane
-function Mino_ics(ri::Float64, p::Float64, e::Float64, M::Float64)
+function Mino_ics(t0::Float64, ri::Float64, p::Float64, e::Float64, M::Float64)
     psi_i = acos((p * M / ri - 1.0) / e)    # Eq. 89
     chi_i = 0.0    # Eq. 89 - since we start orbit at θ = θmin
     ϕi = 0.0    # by axisymmetry can start orbit at ϕ = 0
-    return @SArray [0.0, psi_i, chi_i, ϕi]
+    return @SArray [t0, psi_i, chi_i, ϕi]
 end
 
 # equation for ODE solver
-function geodesicEq(u, params, λ)
+function HJ_Eqns(u, params, λ)
     @SArray [dt_dλ(u..., params...), dψ_dλ(u..., params...), dχ_dλ(u..., params...), dϕ_dλ(u..., params...)]
 end
 
@@ -139,8 +139,8 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64,
     ri = ra; λspan = (0.0, λmax);
     λ = 0:saveat:λmax |> collect
 
-    ics = Mino_ics(ri, p, e, M);
-    prob = ODEProblem(geodesicEq, ics, λspan, params);
+    ics = Mino_ics(0.0, ri, p, e, M);
+    prob = ODEProblem(HJ_Eqns, ics, λspan, params);
     sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δλi, reltol = reltol, abstol = abstol, saveat=λ);
  
     # deconstruct solution
@@ -189,6 +189,69 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64,
     println("ODE saved to: " * ODE_filename)
 end
 
+
+# computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
+function compute_kerr_geodesic_inspiral(a::Float64, p::Float64, e::Float64, θi::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M::Float64, ics::SVector{4, Float64}, saveat_λ::Vector{Float64},
+    λspan::Tuple{Float64, Float64}, Δλi::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10)
+
+    # compute roots of radial function R(r)
+    zm = cos(θi)^2
+    zp = C / (a^2 * (1.0-E^2) * zm)    # Eq. E23
+    ra=p * M / (1.0 - e); rp=p * M / (1.0 + e);
+    A = M / (1.0 - E^2) - (ra + rp) / 2.0    # Eq. E20
+    B = a^2 * C / ((1.0 - E^2) * ra * rp)    # Eq. E21
+    r3 = A + sqrt(A^2 - B); r4 = A - sqrt(A^2 - B);    # Eq. E19
+    p3 = r3 * (1.0 - e) / M; p4 = r4 * (1.0 + e) / M    # Above Eq. 96
+
+    # array of params for ODE solver
+    params = @SArray [a, M, E, L, p, e, θi, p3, p4, zp, zm]
+
+    prob = ODEProblem(HJ_Eqns, ics, λspan, params);
+    # int_method=Rodas4P()
+    int_method=DP5()
+    sol = solve(prob, AutoTsit5(int_method), adaptive=true, dt=Δλi, reltol = reltol, abstol = abstol, saveat=saveat_λ);
+ 
+    # deconstruct solution
+    λ = sol.t;
+    t = sol[1, :];
+    psi = sol[2, :];
+    chi = mod.(sol[3, :], 2π);
+    ϕ = sol[4, :];
+
+    # compute time derivatives (wrt λ)
+    dt_dλ = MinoEvolution.dt_dλ.(λ, psi, chi, ϕ, a, M, E, L, p, e, θi, p3, p4, zp, zm)
+    dψ_dλ = MinoEvolution.dψ_dλ.(λ, psi, chi, ϕ, a, M, E, L, p, e, θi, p3, p4, zp, zm)
+    dχ_dλ = MinoEvolution.dχ_dλ.(λ, psi, chi, ϕ, a, M, E, L, p, e, θi, p3, p4, zp, zm)
+    dϕ_dλ = MinoEvolution.dϕ_dλ.(λ, psi, chi, ϕ, a, M, E, L, p, e, θi, p3, p4, zp, zm)
+
+    # compute BL coordinates r, θ and their time derivatives (wrt λ)
+    r = MinoEvolution.r.(psi, p, e, M)
+    θ = [acos((π/2<chi[i]<1.5π) ? -sqrt(MinoEvolution.z(chi[i], θi)) : sqrt(MinoEvolution.z(chi[i], θi))) for i in eachindex(chi)]
+
+    dr_dλ = MinoEvolution.dr_dλ.(dψ_dλ, psi, p, e, M);
+    dθ_dλ = MinoEvolution.dθ_dλ.(dχ_dλ, chi, θ, θi);
+
+    # compute derivatives wrt t
+    dr_dt = @. dr_dλ / dt_dλ
+    dθ_dt = @. dθ_dλ / dt_dλ 
+    dϕ_dt = @. dϕ_dλ / dt_dλ 
+
+    # compute derivatives wrt τ
+    v = [[dr_dt[i], dθ_dt[i], dϕ_dt[i]] for i in eachindex(λ)]; # v=dxi/dt
+
+    dt_dτ = @. MinoEvolution.Γ(t, r, θ, ϕ, v, a, M)
+    
+    # substitute solution back into geodesic equation to find second derivatives of BL coordinates (wrt t)
+    d2r_dt2 = MinoEvolution.dr2_dt2.(t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, a, M)
+    d2θ_dt2 = MinoEvolution.dθ2_dt2.(t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, a, M)
+    d2ϕ_dt2 = MinoEvolution.dϕ2_dt2.(t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, a, M)
+
+
+    # rows are: λ, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
+    return transpose(stack([λ, t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dλ, dt_dτ, psi, chi]))
+end
+
+
 end
 
 
@@ -211,7 +274,7 @@ end
 # Mino_ics(ri::Float64, θi::Float64) = @SArray [0.0, ri, θi, 0.0]    # start orbit at λ=0 and at ϕ=0
 
 # # equation for ODE solver
-# function geodesicEq(u, params, λ)
+# function HJ_Eqns(u, params, λ)
 #     @SArray [tdot(u..., params...), rdot(u..., params...), θdot(u..., params...), ϕdot(u..., params...)]
 # end
 
@@ -236,7 +299,7 @@ end
 #     λ = 0:saveat:λmax |> collect
 
 #     ics = Mino_ics(ri, θi);
-#     prob = ODEProblem(geodesicEq, ics, λspan, params);
+#     prob = ODEProblem(HJ_Eqns, ics, λspan, params);
 #     sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δλi, reltol = reltol, abstol = abstol, saveat=λ);
  
 #     # deconstruct solution

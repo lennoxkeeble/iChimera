@@ -15,7 +15,7 @@ rminus(a::Float64, M::Float64) = M - sqrt(M^2 - a^2)
 
 # define functions used in coordinate transformations, where r is in BL coordinates
 Ω(r:: Float64, a::Float64, M::Float64) = tan(a * log((r - rminus(a, M)) / (r - rplus(a, M))) / (2.0 * sqrt(M^2 - a^2)))   # Eq. 76
-Φ(r::Float64, a::Float64, M::Float64) = π/2 - atan(((r - M) / a + Ω(r, a, M)) / (1.0 - (r - M) * Ω(r, a, M) / a))    # Eq. 75
+Φ(r::Float64, a::Float64, M::Float64) = π/2 - atan(((r - M) / a + Ω(r, a, M)), (1.0 - (r - M) * Ω(r, a, M) / a))    # Eq. 75
 ∂Φ_∂r(r::Float64, a::Float64, M::Float64) = a * M^2 / ((a^2 + (M - r)^2) * (a^2 + r * (r - 2M)))
 ∂2Φ_∂rr(r::Float64, a::Float64, M::Float64) = 2.0a * (M - r) * (-1.0 / ((a^2 + (M - r)^2)^2) + 1.0 / ((a^2 + r * (r - 2M))^2))
 
@@ -32,7 +32,7 @@ function xHtoBL(xH::Vector{Float64}, a::Float64, M::Float64)
     rH = norm_3d(xH)   # Eq. 74
     rBL = M + sqrt((rH^2 - a^2 + sqrt((rH^2 - a^2)^2 + 4.0 * (a^2) * (xH[3]^2))) / 2.0)    # Eq. 72
     θ = acos(xH[3] / (rBL - M))    # Eq. 73
-    ϕ = Φ(rBL, a, M) + atan(xH[2] / xH[1])  # Eq. 71
+    ϕ = Φ(rBL, a, M) + atan(xH[2], xH[1])  # Eq. 71
     return [rBL, θ, ϕ]
 end
 

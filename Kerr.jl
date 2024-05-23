@@ -213,9 +213,16 @@ function ELQ(a::Float64, p::Float64, e::Float64, θmin::Float64, M::Float64)
     # prograde z-component of angular momentum (Eq. E14) - retrograde is negative root
     Lp = sqrt((commute(α1, α2, β1, β2) * Ep^2 + commute(λ1, λ2, β1, β2)) / commute(β1, β2, γ1, γ2))
 
-    C = zm * (Lp^2 / (1.0 - zm) + a^2 * (1.0 - Ep^2))    # Eq. E2
+    if θmin==0.0
+        C = 0.0
+    else
+        C = zm * (Lp^2 / (1.0 - zm) + a^2 * (1.0 - Ep^2))    # Eq. E2
+    end
+    
     Q = C + (Lp - a * Ep)^2    # Eq. 17
-    return Ep, Lp, Q, C
+    iota = acos(Lp/sqrt(Lp^2+C))
+
+    return Ep, Lp, Q, C, iota
 end
 
 s = [(-1, -1), (-1, 1), (1, -1), (1, 1)]    # sign pairs (s₁, s₂) in Eq. E32
@@ -266,6 +273,7 @@ function peθ_gsl(a::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M:
     c1 = -1.0 - (L^2 + C) / (a^2 * (1.0 - E^2))
 
     θmin = acos(sqrt((-c1 - sqrt(c1^2 - 4c0))/2))
+    # iota = acos(Lp/sqrt(Lp^2+C))
     return p, e, θmin
 end
 
@@ -313,6 +321,7 @@ function peθ(a::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M::Flo
     return p, e, θmin
 end
 
+# TO-DO: ONLY NEED a, p, e, θmin and M AS PARAMETERS
 function KerrFreqs(a::Float64, p::Float64, e::Float64, θmin::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, rplus::Float64, rminus::Float64, M::Float64)
     zm = cos(θmin)^2
     zp = C / (a^2 * (1.0-E^2) * zm)    # Eq. E23
@@ -343,6 +352,15 @@ function KerrFreqs(a::Float64, p::Float64, e::Float64, θmin::Float64, E::Float6
         0.5E * ((r3 * (ra+rp+r3) - ra * rp) * K_kr + (rp-r3) * (ra+rp+r3+r4) * Πhr + (ra-r3) * (rp-r4) * E_kr) + 2.0M * E * (r3 * K_kr + (rp-r3) * Πhr)+
         2.0M / (rplus-rminus) * (((4.0M^2 * E-a*L) * rplus - 2.0M * a^2 * E)/(r3-rplus) * (K_kr - (rp-r3)/(rp-rplus) * Πhp) - 
         ((4.0M^2 * E-a*L) * rminus - 2.0M * a^2 * E)/(r3-rminus) * (K_kr - (rp-r3)/(rp-rminus) * Πhm)))
+
+    # special cases in which the frequencies are infinite
+    if e == 0.0 && θmin == π/2   # circular equatorial
+        γr = 1e50; γθ =1e50;
+    elseif e == 0.0   # circular non-equatorial
+        γr = 1e50;
+    elseif θmin == π/2   # non-circular equatorial
+        γθ = 1e50;
+    end
 
     return [γr, γθ, γϕ, γt]
 end

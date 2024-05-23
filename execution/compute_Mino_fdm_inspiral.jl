@@ -1,0 +1,2 @@
+@time SelfForce_numerical.compute_inspiral_Mino!(t_max_M, nPointsFDM, M, m, a, p, e, θmin,  Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ,
+                                                 h, kerrReltol, kerrAbstol, data_path=data_path_Mino_FDM)

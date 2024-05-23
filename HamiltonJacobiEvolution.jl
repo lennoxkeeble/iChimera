@@ -64,15 +64,19 @@ end
 
 # initial conditions for bound kerr orbits starting in equatorial plane
 function HJ_ics(ri::Float64, p::Float64, e::Float64, M::Float64)
-    psi_i = acos((p * M / ri - 1.0) / e)    # Eq. 89
+    psi_i = e==0 ? 0.0 : acos((p * M / ri - 1.0) / e)    # Eq. 89 --- for circular orbits set ψ = 0
     chi_i = 0.0    # Eq. 89 - since we start orbit at θ = θmin
     ϕi = 0.0    # by axisymmetry can start orbit at ϕ = 0
     return @SArray [psi_i, chi_i, ϕi]
 end
 
 # equation for ODE solver
-function geodesicEq(u, params, t)
+function HJ_Eqns(u, params, t)
     @SArray [psi_dot(u..., params...), chi_dot(u..., params...), phi_dot(u..., params...)]
+end
+
+function HJ_Eqns_circular(u, params, t)
+    @SArray [0.0, chi_dot(u..., params...), phi_dot(u..., params...)]
 end
 
 # computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
@@ -103,7 +107,7 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64,
     ri = ra; tspan = (0.0, tmax); saveat_t = range(start=tspan[1], length=nPoints, stop=tspan[2])
 
     ics = HJ_ics(ri, p, e, M);
-    prob = ODEProblem(geodesicEq, ics, tspan, params);
+    prob = e == 0 ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJ_Eqns, ics, tspan, params);
     sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
  
     # deconstruct solution

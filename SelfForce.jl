@@ -11,9 +11,14 @@ using ..Kerr
 using ..HJEvolution
 using ..FourierFitGSL
 using ProgressBars
-
+using ..CircularNonEquatorial
+using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6
+using ..ParameterizedDerivs, ..MinoTimeDerivs
 import ..HarmonicCoords: g_tt_H, g_tr_H, g_rr_H, g_μν_H, gTT_H, gTR_H, gRR_H, gμν_H
 using ..HarmonicCoords
+using ..ConstructSymmetricArrays
+using JLD2
+using FileIO
 
 # define some useful functions
 otimes(a::Vector, b::Vector) = [a[i] * b[j] for i=1:size(a, 1), j=1:size(b, 1)]    # tensor product of two vectors
@@ -142,11 +147,11 @@ mTot(m::Float64, M::Float64) = m + M;
 M_ij(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * (1.0+m) * STF(x_H, i, j)  # quadrupole mass moment Eq. 48
 ddotMij(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int) = η(m/M) * (1.0+m) * ((-2.0δ(i, j)/3.0) * (dot(x_H, a_H) + dot(v_H, v_H)) + x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j])   # Eq. 7.17
 
-# M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0 - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
-# ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0 - m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
+M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0 - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
+ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = η(m/M) * (1.0 - m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
 
-M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = -η(m/M) * (1.0 - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
-ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = -η(m/M) * (1.0 - m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
+# M_ijk(x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = -η(m/M) * (1.0 - m) * STF(x_H, i, j, k)  # octupole mass moment Eq. 48
+# ddotMijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) = -η(m/M) * (1.0 - m) * ((-4.0/5.0) * (dot(x_H, v_H)) * (δ(i, j) * v_H[k] + δ(j, k) * v_H[i] + δ(k, i) * v_H[j]) - (2.0/5.0) * (dot(x_H, a_H) + dot(v_H, v_H)) * (δ(i, j) * x_H[k] + δ(j, k) * x_H[i] + δ(k, i) * x_H[j]) - (1.0/5.0) * dot(x_H, x_H) * (δ(i, j) * a_H[k] + δ(j, k) * a_H[i] + δ(k, i) * a_H[j]) + 2.0 * v_H[k] * (x_H[j] * v_H[i] + x_H[i] * v_H[j]) + x_H[k] * (x_H[j] * a_H[i] + 2.0 * v_H[i] * v_H[j] + x_H[i] * a_H[j]) + x_H[i] * x_H[j] * a_H[k])   # Eq. 7.19
 
 
 # second derivative of Mijkl, as defined in Eq. 85 (LONG EXPRESSION COPIED FROM MMA)
@@ -157,16 +162,6 @@ const ρ::Vector{Int} = [1, 2, 3]   # spacial indices
 const spatial_indices_3::Array = [[x, y, z] for x=1:3, y=1:3, z=1:3]   # array where each element kl = [[k, l, i] for i=1:3]
 const εkl::Array{Vector} = [[levicivita(spatial_indices_3[k, l, i]) for i = 1:3] for k=1:3, l=1:3]   # array where each element kl = [e_{kli} for i=1:3]
 
-# function S_ij(x_H::AbstractArray, xH::AbstractArray, vH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)   # Eq. 49
-#     s_ij=0.0
-#     @inbounds for k=1:3
-#         for l=1:3
-#             s_ij +=  STF(εkl[k, l], x_H, i, j) * xH[k] * vH[l]
-#         end
-#     end
-#     return η(m/M) * (1.0 - m) * s_ij
-# end
-
 function S_ij(x_H::AbstractArray, xH::AbstractArray, vH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)   # Eq. 49
     s_ij=0.0
     @inbounds for k=1:3
@@ -174,17 +169,17 @@ function S_ij(x_H::AbstractArray, xH::AbstractArray, vH::AbstractArray, m::Float
             s_ij +=  STF(εkl[k, l], x_H, i, j) * xH[k] * vH[l]
         end
     end
-    return -η(m/M) * (1.0 - m) * s_ij
+    return η(m/M) * (1.0 - m) * s_ij
 end
 
-# function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::AbstractArray, xH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)
-#     S=0.0
+# function S_ij(x_H::AbstractArray, xH::AbstractArray, vH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)   # Eq. 49
+#     s_ij=0.0
 #     @inbounds for k=1:3
 #         for l=1:3
-#             S += -2.0δ(i, j) * (vH[l] * (xH[k] * dot(εkl[k, l], v_H) + vH[k] * dot(εkl[k, l], x_H)) + xH[k] * aH[l] * dot(εkl[k, l], x_H)) + 3.0 * vH[l] * (εkl[k, l][i] * (xH[k] * v_H[j] + x_H[j] * vH[k]) + εkl[k, l][j] * (xH[k] * v_H[i] + x_H[i] * vH[k])) + 3.0 * xH[k] * aH[l] * (εkl[k, l][i] * x_H[j] + εkl[k, l][j] * x_H[i])
+#             s_ij +=  STF(εkl[k, l], x_H, i, j) * xH[k] * vH[l]
 #         end
 #     end
-#     return η(m/M) * (1.0 - m) * S / 6.0
+#     return -η(m/M) * (1.0 - m) * s_ij
 # end
 
 function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::AbstractArray, xH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)
@@ -194,8 +189,18 @@ function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::A
             S += -2.0δ(i, j) * (vH[l] * (xH[k] * dot(εkl[k, l], v_H) + vH[k] * dot(εkl[k, l], x_H)) + xH[k] * aH[l] * dot(εkl[k, l], x_H)) + 3.0 * vH[l] * (εkl[k, l][i] * (xH[k] * v_H[j] + x_H[j] * vH[k]) + εkl[k, l][j] * (xH[k] * v_H[i] + x_H[i] * vH[k])) + 3.0 * xH[k] * aH[l] * (εkl[k, l][i] * x_H[j] + εkl[k, l][j] * x_H[i])
         end
     end
-    return -η(m/M) * (1.0 - m) * S / 6.0
+    return η(m/M) * (1.0 - m) * S / 6.0
 end
+
+# function dotSij(aH::AbstractArray, v_H::AbstractArray, vH::AbstractArray, x_H::AbstractArray, xH::AbstractArray, m::Float64, M::Float64, i::Int, j::Int)
+#     S=0.0
+#     @inbounds for k=1:3
+#         for l=1:3
+#             S += -2.0δ(i, j) * (vH[l] * (xH[k] * dot(εkl[k, l], v_H) + vH[k] * dot(εkl[k, l], x_H)) + xH[k] * aH[l] * dot(εkl[k, l], x_H)) + 3.0 * vH[l] * (εkl[k, l][i] * (xH[k] * v_H[j] + x_H[j] * vH[k]) + εkl[k, l][j] * (xH[k] * v_H[i] + x_H[i] * vH[k])) + 3.0 * xH[k] * aH[l] * (εkl[k, l][i] * x_H[j] + εkl[k, l][j] * x_H[i])
+#         end
+#     end
+#     return -η(m/M) * (1.0 - m) * S / 6.0
+# end
 
 # first derivative of Sijk, as defined in Eq. 86 (LONG EXPRESSION COPIED FROM MMA)
 dotSijk(a_H::AbstractArray, v_H::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, i::Int, j::Int, k::Int) =((1.0+m)*η(m/M)*((δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,1][j] + x_H[j]*(x_H[k]*εkl[1,1][i] + x_H[i]*εkl[1,1][k])))*v_H[1]^2 + (δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,2][j] + x_H[j]*(x_H[k]*εkl[1,2][i] + x_H[i]*εkl[1,2][k])))*v_H[1]*v_H[2] + (δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,1][j] + x_H[j]*(x_H[k]*εkl[2,1][i] + x_H[i]*εkl[2,1][k])))*v_H[1]*v_H[2] + (δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,2][j] + x_H[j]*(x_H[k]*εkl[2,2][i] + x_H[i]*εkl[2,2][k])))*v_H[2]^2 + x_H[1]*v_H[1]*(-2.0*δ(j,k)*(εkl[1,1][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,1][1]*v_H[1] + εkl[1,1][2]*v_H[2] + εkl[1,1][3]*v_H[3]) + (x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[1,1][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,1][1]*v_H[1] + εkl[1,1][2]*v_H[2] + εkl[1,1][3]*v_H[3]) + (x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[1,1][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,1][1]*v_H[1] + εkl[1,1][2]*v_H[2] + εkl[1,1][3]*v_H[3]) + (x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3])*v_H[i]) + 5.0*(εkl[1,1][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[1,1][j]*v_H[i] + εkl[1,1][i]*v_H[j]) + (x_H[j]*εkl[1,1][i] + x_H[i]*εkl[1,1][j])*v_H[k])) + x_H[1]*v_H[2]*(-2.0*δ(j,k)*(εkl[1,2][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,2][1]*v_H[1] + εkl[1,2][2]*v_H[2] + εkl[1,2][3]*v_H[3]) + (x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[1,2][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,2][1]*v_H[1] + εkl[1,2][2]*v_H[2] + εkl[1,2][3]*v_H[3]) + (x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[1,2][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[1,2][1]*v_H[1] + εkl[1,2][2]*v_H[2] + εkl[1,2][3]*v_H[3]) + (x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3])*v_H[i]) + 5.0*(εkl[1,2][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[1,2][j]*v_H[i] + εkl[1,2][i]*v_H[j]) + (x_H[j]*εkl[1,2][i] + x_H[i]*εkl[1,2][j])*v_H[k])) + x_H[2]*v_H[1]*(-2.0*δ(j,k)*(εkl[2,1][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,1][1]*v_H[1] + εkl[2,1][2]*v_H[2] + εkl[2,1][3]*v_H[3]) + (x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[2,1][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,1][1]*v_H[1] + εkl[2,1][2]*v_H[2] + εkl[2,1][3]*v_H[3]) + (x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[2,1][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,1][1]*v_H[1] + εkl[2,1][2]*v_H[2] + εkl[2,1][3]*v_H[3]) + (x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3])*v_H[i]) + 5.0*(εkl[2,1][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[2,1][j]*v_H[i] + εkl[2,1][i]*v_H[j]) + (x_H[j]*εkl[2,1][i] + x_H[i]*εkl[2,1][j])*v_H[k])) + x_H[2]*v_H[2]*(-2.0*δ(j,k)*(εkl[2,2][i]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,2][1]*v_H[1] + εkl[2,2][2]*v_H[2] + εkl[2,2][3]*v_H[3]) + (x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3])*v_H[i]) - 2.0*δ(k,i)*(εkl[2,2][j]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,2][1]*v_H[1] + εkl[2,2][2]*v_H[2] + εkl[2,2][3]*v_H[3]) + (x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3])*v_H[i]) - 2.0*δ(i,j)*(εkl[2,2][k]*(x_H[1]*v_H[1] + x_H[2]*v_H[2] + x_H[3]*v_H[3]) + x_H[i]*(εkl[2,2][1]*v_H[1] + εkl[2,2][2]*v_H[2] + εkl[2,2][3]*v_H[3]) + (x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3])*v_H[i]) + 5.0*(εkl[2,2][k]*(x_H[j]*v_H[i] + x_H[i]*v_H[j]) + x_H[k]*(εkl[2,2][j]*v_H[i] + εkl[2,2][i]*v_H[j]) + (x_H[j]*εkl[2,2][i] + x_H[i]*εkl[2,2][j])*v_H[k])) + x_H[1]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,1][1] + x_H[2]*εkl[1,1][2] + x_H[3]*εkl[1,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,1][j] + x_H[j]*(x_H[k]*εkl[1,1][i] + x_H[i]*εkl[1,1][k])))*a_H[1] + x_H[2]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,1][1] + x_H[2]*εkl[2,1][2] + x_H[3]*εkl[2,1][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,1][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,1][j] + x_H[j]*(x_H[k]*εkl[2,1][i] + x_H[i]*εkl[2,1][k])))*a_H[1] + x_H[1]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[1,2][1] + x_H[2]*εkl[1,2][2] + x_H[3]*εkl[1,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[1,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[1,2][j] + x_H[j]*(x_H[k]*εkl[1,2][i] + x_H[i]*εkl[1,2][k])))*a_H[2] + x_H[2]*(δ(j,k)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][i]) + δ(k,i)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][j]) + δ(i,j)*(-2.0*x_H[i]*(x_H[1]*εkl[2,2][1] + x_H[2]*εkl[2,2][2] + x_H[3]*εkl[2,2][3]) - (x_H[1]^2 + x_H[2]^2 + x_H[3]^2)*εkl[2,2][k]) + 5.0*(x_H[i]*x_H[k]*εkl[2,2][j] + x_H[j]*(x_H[k]*εkl[2,2][i] + x_H[i]*εkl[2,2][k])))*a_H[2]))/15.
@@ -251,188 +256,275 @@ function moments_wf!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v
     end
 end
 
-const multipoles::Vector{String} = ["mass_q_2nd", "mass_o_2nd", "current_1st"]; 
+const multipoles_tr::Vector{String} = ["mass_quad_2nd", "mass_oct_2nd", "current_quad_1st"];
+const two_index_multipoles_tr::Vector{String} = ["mass_quad_2nd", "current_quad_1st"];
+const three_index_multipoles_wf::Vector{String} = ["mass_oct_2nd", "current_oct_1st"]; 
 const index_pairs::Matrix{Tuple{Int64, Int64}} = [(i, j) for i=1:3, j=1:3];
 const fourier_fit_p0_path::String = "/home/lkeeble/GRSuite/fourier_fit_p0/";
 const fourier_fit_path::String = "/home/lkeeble/GRSuite/fourier_fit_params/";
 
-# this function will save files to create initial guesses 
-function moment_derivs_tr_p0!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, fit_fname_param::String)
-    for multipole in multipoles
-        @inbounds Threads.@threads for pair in index_pairs
-            i1, i2 = pair
-            if isequal(multipole, "mass_q_2nd")
-                fit_fname_save=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param     
-                Ω, fit, fitted_data = FourierFit.fourier_fit(tdata, Mij2data[i1, i2], Ωr, Ωθ, Ωϕ, nHarm)
-                fit_params = coef(fit)
-                @views Mij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-                @views Mij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Mij7[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                @views Mij8[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                # save fit #
-                open(fit_fname_save, "w") do io
-                    writedlm(io, coef(fit))
-                end
-            elseif isequal(multipole, "mass_o_2nd")
-                @inbounds for i3=1:3
-                    fit_fname_save=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_k_$(i3)_"*fit_fname_param         
-                    Ω, fit, fitted_data = FourierFit.fourier_fit(tdata, Mijk2data[i1, i2, i3], Ωr, Ωθ, Ωϕ, nHarm)
-                    fit_params = coef(fit)
-                    @views Mijk7[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                    @views Mijk8[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                end
-            elseif isequal(multipole, "current_1st")
-                fit_fname_save=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                Ω, fit, fitted_data = FourierFit.fourier_fit(tdata, Sij1data[i1, i2], Ωr, Ωθ, Ωϕ, nHarm)
-                fit_params = coef(fit)
-                @views Sij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Sij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                open(fit_fname_save, "w") do io
-                    writedlm(io, coef(fit))
+function moment_derivs_tr_Mino!(a::Float64, E::Float64, L::Float64, M::Float64, λ::AbstractArray, x::AbstractArray, dx::AbstractArray,  d2x::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    γ = [γr, γθ, γϕ];
+
+    d3x = [Deriv3.d3r_dt(d2x, dx, x, a), Deriv3.d3θ_dt(d2x, dx, x, a), Deriv3.d3ϕ_dt(d2x, dx, x, a)]
+    d4x = [Deriv4.d4r_dt(d3x, d2x, dx, x, a), Deriv4.d4θ_dt(d3x, d2x, dx, x, a), Deriv4.d4ϕ_dt(d3x, d2x, dx, x, a)]
+    d5x = [Deriv5.d5r_dt(d4x, d3x, d2x, dx, x, a), Deriv5.d5θ_dt(d4x, d3x, d2x, dx, x, a), Deriv5.d5ϕ_dt(d4x, d3x, d2x, dx, x, a)]
+    # d6x = [Deriv6.d6r_dt(d5x, d4x, d3x, d2x, dx, x, a), Deriv6.d6θ_dt(d5x, d4x, d3x, d2x, dx, x, a), Deriv6.d6ϕ_dt(d5x, d4x, d3x, d2x, dx, x, a)]
+
+    dλ_dt = MinoTimeDerivs.dλ_dt(x, a, M, E, L)
+    d2λ_dt = MinoTimeDerivs.d2λ_dt(dx, x, a, M, E, L)
+    d3λ_dt = MinoTimeDerivs.d3λ_dt(d2x, dx, x, a, M, E, L)
+    d4λ_dt = MinoTimeDerivs.d4λ_dt(d3x, d2x, dx, x, a, M, E, L)
+    d5λ_dt = MinoTimeDerivs.d5λ_dt(d4x, d3x, d2x, dx, x, a, M, E, L)
+    d6λ_dt = MinoTimeDerivs.d6λ_dt(d5x, d4x, d3x, d2x, dx, x, a, M, E, L)
+    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.traj_indices
+        if length(indices)==2
+            i1, i2 = indices
+            for multipole in two_index_multipoles_tr
+                fit_params = zeros(2 * n_freqs + 1);
+                if isequal(multipole, "mass_quad_2nd")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mij2data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)
+                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
+                    d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
+                    d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+                    d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                    d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                    d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+
+                    d3f_dt = ParameterizedDerivs.d3f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt)
+                    d4f_dt = ParameterizedDerivs.d4f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt)
+                    d5f_dt = ParameterizedDerivs.d5f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt)
+                    d6f_dt = ParameterizedDerivs.d6f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt, d6f_dλ, d6λ_dt)
+
+                    @views Mij5[i1, i2] = d3f_dt
+                    @views Mij6[i1, i2] = d4f_dt
+                    @views Mij7[i1, i2] = d5f_dt
+                    @views Mij8[i1, i2] = d6f_dt
+                elseif isequal(multipole, "current_quad_1st")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sij1data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)           
+                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
+                    d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
+                    d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+                    d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                    d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                    d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+
+                    d4f_dt = ParameterizedDerivs.d4f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt)
+                    d5f_dt = ParameterizedDerivs.d5f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt)
+
+                    @views Sij5[i1, i2] = d4f_dt
+                    @views Sij6[i1, i2] = d5f_dt
                 end
             end
-            
-            # # save fit #
-            # open(fit_fname_save, "w") do io
-            #     writedlm(io, coef(fit))
-            # end
-        end
-    end
-end
-
-function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit_fname_param::String)
-    for multipole in multipoles
-        @inbounds Threads.@threads for pair in index_pairs
+        else
+            i1, i2, i3 = indices
             fit_params = zeros(2 * n_freqs + 1);
-            i1, i2 = pair
-            if isequal(multipole, "mass_q_2nd")
-                # if we are computing the self force for the first time, we will load precomputed initial guess p0
-                # otherwise, we load the coefficients from the previous fit an overwrite
-                # fit_fname_p0=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_save=fourier_fit_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_load = isfile(fit_fname_save) ? fit_fname_save : fit_fname_p0
-                # isfile(fit_fname_load) ? p0=readdlm(fit_fname_load)[:] : p0 = Float64[];
-                Ω_fit = FourierFitGSL.GSL_fit!(tdata, Mij2data[i1, i2], nPoints, nHarm, chisq,  Ωr, Ωθ, Ωϕ, fit_params)
-                @views Mij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-                @views Mij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Mij7[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                @views Mij8[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                # save fit #
-                # open(fit_fname_save, "w") do io
-                #     writedlm(io, coef(fit))
-                # end
-            elseif isequal(multipole, "mass_o_2nd")
-                @inbounds for i3=1:3
-                    # fit_fname_p0=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_k_$(i3)_"*fit_fname_param 
-                    # fit_fname_save=fourier_fit_path * multipole * "_i_$(i1)_j_$(i2)_k_$(i3)_"*fit_fname_param
-                    # fit_fname_load = isfile(fit_fname_save) ? fit_fname_save : fit_fname_p0     
-                    Ω_fit = FourierFitGSL.GSL_fit!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ωr, Ωθ, Ωϕ, fit_params) 
-                    @views Mijk7[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                    @views Mijk8[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-                end
+            Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params)
+            df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
+            d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
+            d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+            d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+            d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+            d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
 
-            elseif isequal(multipole, "current_1st")
-                # fit_fname_p0=fourier_fit_p0_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_save=fourier_fit_path * multipole * "_i_$(i1)_j_$(i2)_"*fit_fname_param
-                # fit_fname_load = isfile(fit_fname_save) ? fit_fname_save : fit_fname_p0
-                # p0=readdlm(fit_fname_load)[:]
-                Ω_fit = FourierFitGSL.GSL_fit!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ωr, Ωθ, Ωϕ, fit_params)                 
-                @views Sij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                @views Sij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                # # save fit #
-                # open(fit_fname_save, "w") do io
-                #     writedlm(io, coef(fit))
-                # end
-            end
+            d5f_dt = ParameterizedDerivs.d5f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt)
+            d6f_dt = ParameterizedDerivs.d6f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt, d6f_dλ, d6λ_dt)
             
-            # # save fit #
-            # open(fit_fname_save, "w") do io
-            #     writedlm(io, coef(fit))
-            # end
+            @views Mijk7[i1, i2, i3] = d5f_dt
+            @views Mijk8[i1, i2, i3] = d6f_dt
         end
     end
+
+    # symmetrize moments
+    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij6);
+    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij7); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij8);
+    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij6);
+    ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk7); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk8);
 end
 
-# # calculate time derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
-# function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
-#     @inbounds Threads.@threads for i=1:3
-#         @inbounds for j=1:3
-#             MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(4))
-#             @views Mij5[i, j, :] = ND.(tdata, Ref(MijSpline), 3)  # differentiate 2nd derivative 5-2=3 times
-#             MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(5))
-#             @views Mij6[i, j, :] = ND.(tdata, Ref(MijSpline), 4)   # differentiate 2nd derivative 6-2=4 times
-#             @views MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(6))
-#             Mij7[i, j, :] = ND.(tdata, Ref(MijSpline), 5)   # differentiate 2nd derivative 7-2=5 times
-#             @views MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(7))
-#             Mij8[i, j, :] = ND.(tdata, Ref(MijSpline), 6)   # differentiate 2nd derivative 8-2=6 times
 
-#             SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(5))
-#             @views Sij5[i, j, :] = ND.(tdata, Ref(SijSpline), 4)   # differentiate 1st derivative 5-1=4 times
-#             SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(6))
-#             @views Sij6[i, j, :] = ND.(tdata, Ref(SijSpline), 5)   # differentiate 1st derivative 5-1=4 times
+function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, M::Float64, λ::AbstractArray, x::AbstractArray, dx::AbstractArray,
+    Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray,
+    Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    γ = [γr, γθ, γϕ];
 
-#             @inbounds for k=1:3
-#                 MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(6))
-#                 @views Mijk7[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 5)   # differentiate 2nd derivative 7-2=5 times
-#                 MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(7))
-#                 @views Mijk8[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 6)   # differentiate 2nd derivative 8-2=6 times
-#             end 
-#         end
-#     end
-# end
-
-# # calculate time derivatives of the mass and current moments for trajectory evolution, i.e., to compute self-force
-# function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
-#     @inbounds Threads.@threads for i=1:3
-#         @inbounds for j=1:3
-#             MijSpline = interpolate(tdata, Mij2data[i, j], BSplineOrder(10))
-#             @views Mij5[i, j, :] = ND.(tdata, Ref(MijSpline), 3)
-#             @views Mij6[i, j, :] = ND.(tdata, Ref(MijSpline), 4)
-#             @views Mij7[i, j, :] = ND.(tdata, Ref(MijSpline), 5)
-#             @views Mij8[i, j, :] = ND.(tdata, Ref(MijSpline), 6)
-
-#             SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(10))
-#             @views Sij5[i, j, :] = ND.(tdata, Ref(SijSpline), 4)
-#             @views Sij6[i, j, :] = ND.(tdata, Ref(SijSpline), 5)
-
-#             @inbounds for k=1:3
-#                 MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(10))
-#                 @views Mijk7[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 5) 
-#                 @views Mijk8[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 6) 
-#             end 
-#         end
-#     end
-# end
-
-# calculate time derivatives of the moments for the waveform computation
-function moment_derivs_wf!(tdata::AbstractArray, Mij2_data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mij2::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray)
-    @inbounds Threads.@threads for i=1:3
-        @inbounds for j=1:3
-            SijSpline = interpolate(tdata, Sij1data[i, j], BSplineOrder(2))
-            @views Sij2[i, j, :] = ND.(tdata, Ref(SijSpline), 1)   # differentiate 1st derivative 2-1=1 time
-            @inbounds for k=1:3
-                MijkSpline = interpolate(tdata, Mijk2data[i, j, k], BSplineOrder(2))
-                @views Mijk3[i, j, k, :] = ND.(tdata, Ref(MijkSpline), 1)   # differentiate 2nd derivative 3-2=1 time
-                SijkSpline = interpolate(tdata, Sijk1data[i, j, k], BSplineOrder(3))
-                @views Sijk3[i, j, k, :] = ND.(tdata, Ref(SijkSpline), 2)   # differentiate 1st derivative 3-1=2 times
-                @inbounds for l=1:3
-                    MijklSpline = interpolate(tdata, Mijkl2data[i, j, k, l], BSplineOrder(3))
-                    @views Mijkl4[i, j, k, l, :] = ND.(tdata, Ref(MijklSpline), 2)   # differentiate 2nd derivative 4-2=2 times
+    dλ_dt = MinoTimeDerivs.dλ_dt.(x, a, M, E, L)
+    d2λ_dt = MinoTimeDerivs.d2λ_dt.(dx, x, a, M, E, L)
+    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        if length(indices)==2
+            i1, i2 = indices
+            fit_params = zeros(2 * n_freqs + 1);
+            Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sij1data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)  
+            df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+            df_dt = ParameterizedDerivs.df_dt.(df_dλ, dλ_dt)
+            @views Sij2[i1, i2] = df_dt
+        elseif length(indices)==3
+            i1, i2, i3 = indices
+            for multipole in three_index_multipoles_wf
+                fit_params = zeros(2 * n_freqs + 1);
+                if isequal(multipole, "mass_oct_2nd")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params) 
+                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                    df_dt = ParameterizedDerivs.df_dt.(df_dλ, dλ_dt)
+                    @views Mijk3[i1, i2, i3] = df_dt
+                elseif isequal(multipole, "current_oct_1st")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sijk1data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params)
+                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                    d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)
+                    d2f_dt = ParameterizedDerivs.d2f_dt.(df_dλ, dλ_dt, d2f_dλ, d2λ_dt)
+                    @views Sijk3[i1, i2, i3] = d2f_dt
                 end
-            end 
+            end
+        else
+            i1, i2, i3, i4 = indices
+            fit_params = zeros(2 * n_freqs + 1);
+            Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, chisq,  γ, fit_params) 
+            df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+            d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)
+            d2f_dt = ParameterizedDerivs.d2f_dt.(df_dλ, dλ_dt, d2f_dλ, d2λ_dt)
+            @views Mijkl4[i1, i2, i3, i4] = d2f_dt
         end
     end
 
-    # for consistency, we convert the Mij2_data object, which is a matrix of vectors, into the same type as Sij2, Mijk3, etc.
-    @inbounds Threads.@threads for i=1:3
-        for j=1:3
-            @views Mij2[i, j, :] = Mij2_data[i, j]
+    # # symmetrize moments
+    # ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
+    # ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+    # ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
+end
+
+
+function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    Ω = [Ωr, Ωθ, Ωϕ];
+    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.traj_indices
+        if length(indices)==2
+            i1, i2 = indices
+            for multipole in two_index_multipoles_tr
+                fit_params = zeros(2 * n_freqs + 1);
+                if isequal(multipole, "mass_quad_2nd")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mij2data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)
+                    @views Mij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+                    @views Mij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                    @views Mij7[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                    @views Mij8[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+
+                elseif isequal(multipole, "current_quad_1st")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)                 
+                    @views Sij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                    @views Sij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                end
+            end
+        else
+            i1, i2, i3 = indices
+            fit_params = zeros(2 * n_freqs + 1);
+            Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params) 
+            @views Mijk7[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+            @views Mijk8[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
         end
     end
+
+    # symmetrize moments
+    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij6);
+    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij7); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij8);
+    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij6);
+    ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk7); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk8);
+end
+
+
+function moment_derivs_wf!(tdata::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    Ω = [Ωr, Ωθ, Ωϕ];
+    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        if length(indices)==2
+            i1, i2 = indices
+            fit_params = zeros(2 * n_freqs + 1);
+            Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)                 
+            @views Sij2[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 1)
+        elseif length(indices)==3
+            i1, i2, i3 = indices
+            for multipole in three_index_multipoles_wf
+                fit_params = zeros(2 * n_freqs + 1);
+                if isequal(multipole, "mass_oct_2nd")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params) 
+                    @views Mijk3[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                elseif isequal(multipole, "current_oct_1st")
+                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sijk1data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params) 
+                    @views Sijk3[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 2)
+                end
+            end
+        else
+            i1, i2, i3, i4 = indices
+            fit_params = zeros(2 * n_freqs + 1);
+            Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, chisq,  Ω, fit_params) 
+            @views Mijkl4[i1, i2, i3, i4] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 2)
+        end
+    end
+
+    # # symmetrize moments
+    # ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
+    # ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+    # ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
+end
+
+function compute_waveform_moments_and_derivs!(a::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64},
+    Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    # convert trajectories to BL coords
+    @inbounds Threads.@threads for i in eachindex(t)
+        xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
+        vBL[i] = Vector{Float64}([rdot[i], θdot[i], ϕdot[i]]);
+        aBL[i] = Vector{Float64}([rddot[i], θddot[i], ϕddot[i]]);
+    end
+    @inbounds Threads.@threads for i in eachindex(t)
+        xH[i] = HarmonicCoords.xBLtoH(xBL[i], a, M)
+        x_H[i] = xH[i]
+        rH[i] = norm_3d(xH[i]);
+    end
+    @inbounds Threads.@threads for i in eachindex(t)
+        vH[i] = HarmonicCoords.vBLtoH(xH[i], vBL[i], a, M); 
+        v_H[i] = vH[i]; 
+        v[i] = norm_3d(vH[i]);
+    end
+    @inbounds Threads.@threads for i in eachindex(t)
+        aH[i] = HarmonicCoords.aBLtoH(xH[i], vBL[i], aBL[i], a, M); 
+        a_H[i] = aH[i]
+    end
+
+    SelfForce.moments_wf!(aH[1:nPoints], a_H[1:nPoints], vH[1:nPoints], v_H[1:nPoints], xH[1:nPoints], x_H[1:nPoints], m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
+    SelfForce.moment_derivs_wf!(t, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq)
+end
+
+function compute_waveform_moments_and_derivs_Mino!(a::Float64, E::Float64, L::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, 
+    xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, 
+    λ::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64},
+    ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, 
+    Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, 
+    nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+
+    # convert trajectories to BL coords
+    @inbounds Threads.@threads for i in eachindex(λ)
+        xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
+        vBL[i] = Vector{Float64}([rdot[i], θdot[i], ϕdot[i]]);
+        aBL[i] = Vector{Float64}([rddot[i], θddot[i], ϕddot[i]]);
+    end
+    @inbounds Threads.@threads for i in eachindex(λ)
+        xH[i] = HarmonicCoords.xBLtoH(xBL[i], a, M)
+        x_H[i] = xH[i]
+        rH[i] = norm_3d(xH[i]);
+    end
+    @inbounds Threads.@threads for i in eachindex(λ)
+        vH[i] = HarmonicCoords.vBLtoH(xH[i], vBL[i], a, M); 
+        v_H[i] = vH[i]; 
+        v[i] = norm_3d(vH[i]);
+    end
+    @inbounds Threads.@threads for i in eachindex(λ)
+        aH[i] = HarmonicCoords.aBLtoH(xH[i], vBL[i], aBL[i], a, M); 
+        a_H[i] = aH[i]
+    end
+
+    SelfForce.moments_wf!(aH[1:nPoints], a_H[1:nPoints], vH[1:nPoints], v_H[1:nPoints], xH[1:nPoints], x_H[1:nPoints], m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
+    SelfForce.moment_derivs_wf_Mino!(a, E, L, M, λ, xBL, vBL, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq)
 end
 
 # returns hij array at some time t specified as an index (rather than a time in seconds)
-function hij!(hij::AbstractArray, nPoints::Int, r::Float64, Θ::Float64, Φ::Float64, Mij2::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray)
+function hij!(hij::AbstractArray, time::Vector{Float64}, r::Float64, Θ::Float64, Φ::Float64, Mij2::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray)
     # n ≡ unit vector pointing in direction of far away observer
     nx = sin(Θ) * cos(Φ)
     ny = sin(Θ) * sin(Φ)
@@ -440,21 +532,21 @@ function hij!(hij::AbstractArray, nPoints::Int, r::Float64, Θ::Float64, Φ::Flo
     n = [nx, ny, nz]
 
     # calculate perturbations in TT gauge (Eq. 84)
-    @inbounds Threads.@threads for t=1:nPoints
+    @inbounds Threads.@threads for t in eachindex(time)
         for i=1:3
             @inbounds for j=1:3
-                @views hij[i, j, t] = 0    # set all entries to zero
+                @views hij[i, j][t] = 0    # set all entries to zero
 
-                @views hij[i, j, t] += 2.0 * Mij2[i, j, t] / r    # first term in Eq. 84 
+                @views hij[i, j][t] += 2.0 * Mij2[i, j][t] / r    # first term in Eq. 84 
 
                 @inbounds for k=1:3
-                    @views hij[i, j, t] += 2.0 * Mijk3[i, j, k, t] * n[k] / (3.0r)    # second term in Eq. 84
+                    @views hij[i, j][t] += 2.0 * Mijk3[i, j, k][t] * n[k] / (3.0r)    # second term in Eq. 84
 
                     @inbounds for l=1:3
-                        @views hij[i, j, t] += 4.0 * (εkl[k, l][i] * Sij2[j, k, t] * n[l] + εkl[k, l][j] * Sij2[i, k, t] * n[l]) / (3.0r) + Mijkl4[i, j, k, l, t] * n[k] * n[l] / (6.0r)    # third and fourth terms in Eq. 84
+                        @views hij[i, j][t] += 4.0 * (εkl[k, l][i] * Sij2[j, k][t] * n[l] + εkl[k, l][j] * Sij2[i, k][t] * n[l]) / (3.0r) + Mijkl4[i, j, k, l][t] * n[k] * n[l] / (6.0r)    # third and fourth terms in Eq. 84
                         
                         @inbounds for m=1:3
-                            @views hij[i, j, t] += (εkl[k, l][i] * Sijk3[j, k, m, t] * n[l] * n[m] + εkl[k, l][j] * Sijk3[i, k, m, t] * n[l] * n[m]) / (2.0r)
+                            @views hij[i, j][t] += (εkl[k, l][i] * Sijk3[j, k, m][t] * n[l] * n[m] + εkl[k, l][j] * Sijk3[i, k, m][t] * n[l] * n[m]) / (2.0r)
                         end
                     end
                 end
@@ -462,6 +554,15 @@ function hij!(hij::AbstractArray, nPoints::Int, r::Float64, Θ::Float64, Φ::Flo
         end
     end
 end
+
+# project h into TT gauge (Reference: https://arxiv.org/pdf/gr-qc/0607007)
+hΘΘ(h::AbstractArray, Θ::Float64, Φ::Float64) = @. (cos(Θ)^2) * (h[1, 1] * cos(Φ)^2 + h[1, 2] * sin(2Φ) + h[2, 2] * sin(Φ)^2) + h[3, 3] * sin(Θ)^2 - sin(2Θ) * (h[1, 3] * cos(Φ) + h[2, 3] * sin(Φ))   # Eq. 6.15
+hΘΦ(h::AbstractArray, Θ::Float64, Φ::Float64) = @. cos(Θ) * (((-1/2) * h[1, 1] * sin(2Φ)) + h[1, 2] * cos(2Φ) + (1/2) * h[2, 2] * sin(2Φ)) + sin(Θ) * (h[1, 3] * sin(Φ) - h[2, 3] * cos(Φ))   # Eq. 6.16
+hΦΦ(h::AbstractArray, Θ::Float64, Φ::Float64) = @. h[1, 1] * sin(Φ)^2 - h[1, 2] * sin(2Φ) + h[2, 2] * cos(Φ)^2   # Eq. 6.17
+
+# define h_{+} and h_{×} components of GW (https://arxiv.org/pdf/gr-qc/0607007)
+hplus(h::AbstractArray, Θ::Float64, Φ::Float64) = (1/2) *  (hΘΘ(h, Θ, Φ) .- hΦΦ(h, Θ, Φ))
+hcross(h::AbstractArray, Θ::Float64, Φ::Float64) = hΘΦ(h, Θ, Φ)
 
 # calculate radiation reaction potentials
 function Vrr(t::Float64, xH::AbstractArray, Mij5::AbstractArray, Mij7::AbstractArray, Mijk7::AbstractArray)    # Eq. 44
@@ -539,6 +640,22 @@ function ∂Virr_∂a(t::Float64, xH::AbstractArray, Mij6::AbstractArray, Sij5::
     end
     return V
 end
+
+
+# # chimera code
+# function ∂Virr_∂a(t::Float64, xH::AbstractArray, Mij6::AbstractArray, Sij5::AbstractArray, i::Int, a::Int)   # Eq. 45
+#     # use numerical derivatives to calculate RR potentials
+#     V = 0.0   
+#     @inbounds for j=1:3
+#         for k=1:3   # dummy indices
+#             V += (Mij6[j, k] / 21.0) * (δ(i,a) * xH[j] * xH[k] + 0.6 * (xH[i] * xH[j] * δ(a,k) + xH[a] * xH[j] * δ(i,k))) - 0.4 * dot3d(xH, xH) * Mij6[i, a]
+#             @inbounds for l=1:3   # dummy indices in second term in Eq. 45
+#                 V += -4.0 * εkl[i, j][k] * (δ(j, a) * xH[l] + xH[j] * δ(l, a)) * Sij5[k, l] / 45.0
+#             end 
+#         end
+#     end
+#     return V
+# end
 
 # compute self-acceleration pieces
 function A_RR(t::Float64, xH::AbstractArray, v::Float64, vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Vrr_∂a::SVector{3, Float64}, ∂Virr_∂a::SMatrix{3, 3, Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray)
@@ -659,7 +776,37 @@ function aRRα(aSF_H::Vector{Float64}, aSF_BL::Vector{Float64}, t::Float64, xH::
 end
 
 # returns the self-acceleration 4-vector
-function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit_fname_param::String)
+function selfAcc_Mino!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, λ::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, E::Float64, L::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    # convert trajectories to BL coords
+    @inbounds Threads.@threads for i in eachindex(λ)
+        xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
+        vBL[i] = Vector{Float64}([rdot[i], θdot[i], ϕdot[i]]);
+        aBL[i] = Vector{Float64}([rddot[i], θddot[i], ϕddot[i]]);
+    end
+    @inbounds Threads.@threads for i in eachindex(λ)
+        xH[i] = HarmonicCoords.xBLtoH(xBL[i], a, M)
+        x_H[i] = xH[i]
+        rH[i] = norm_3d(xH[i]);
+    end
+    @inbounds Threads.@threads for i in eachindex(λ)
+        vH[i] = HarmonicCoords.vBLtoH(xH[i], vBL[i], a, M); 
+        v_H[i] = vH[i]; 
+        v[i] = norm_3d(vH[i]);
+    end
+    @inbounds Threads.@threads for i in eachindex(λ)
+        aH[i] = HarmonicCoords.aBLtoH(xH[i], vBL[i], aBL[i], a, M); 
+        a_H[i] = aH[i]
+    end
+    
+    # calculate ddotMijk, ddotMijk, dotSij "analytically"
+    SelfForce.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
+    SelfForce.moment_derivs_tr_Mino!(a, E, L, M, λ, xBL[compute_at], vBL[compute_at],  aBL[compute_at], Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq)
+
+    # calculate self force in BL and harmonic coordinates
+    SelfForce.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)
+end
+# returns the self-acceleration 4-vector
+function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
     # convert trajectories to BL coords
     @inbounds Threads.@threads for i in eachindex(t)
         xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
@@ -683,34 +830,60 @@ function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArra
     
     # calculate ddotMijk, ddotMijk, dotSij "analytically"
     SelfForce.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
-
-    # calculate moment derivatives numerically at t = tF
-    # SelfForce.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6)
-
-    SelfForce.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit_fname_param)
+    SelfForce.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq)
 
     # calculate self force in BL and harmonic coordinates
     SelfForce.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)
 end
 
 function EvolveConstants(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64, aSF_BL::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray, CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
-    #### ELQ ####
-    push!(Edot, (- Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 1, 1) * aSF_BL[1] - Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 4, 1) * aSF_BL[4])/Γ)    # Eq. 30
-    push!(Ldot, (Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 1, 4) * aSF_BL[1] + Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 4, 4) * aSF_BL[4])/Γ)    # Eq. 31
+    # first load orbital constants of previous geodesic (recall that we compute updated constants to move to the next geodesic in the inspiral)
+    E0 = last(EE); L0 = last(LL); Q0 = last(QQ); C0 = last(CC); p0 = last(pArray); e0 = last(ecc); θmin_0 = last(θmin);
     
-    dQ_dt = 0
-    @inbounds for α=1:4, β=1:4
-        dQ_dt += 2 * Kerr.KerrMetric.ξ_μν(t, r, θ, ϕ, a, M, α, β) * (α==1 ? 1. : α==2 ? rdot : α==3 ? θdot : ϕdot) * aSF_BL[β]    # Eq. 32
+    #### update E, L, Q, C ####
+    # update E
+    dE_dt = (- Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 1, 1) * aSF_BL[1] - Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 4, 1) * aSF_BL[4])/Γ    # Eq. 30
+    push!(Edot, dE_dt)
+
+    # update L
+    if e0==0.0 && θmin_0==π/2   # circular equatorial
+        ang_velocity = 1/(a + M * p * sqrt(p))
+        dL_dt = dE_dt / ang_velocity    # page 10 first paragraph on right column
+        push!(Ldot, dE_dt / ang_velocity)
+    else
+        dL_dt = (Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 1, 4) * aSF_BL[1] + Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 4, 4) * aSF_BL[4])/Γ    # Eq. 31
+        push!(Ldot, dL_dt)
     end
+    
+    # update C, Q
+    if θmin_0==π/2  # equatorial
+        dC_dt = 0.0
+        dQ_dt = - 2 * (a * E0 - L0) * (dL_dt - a * dE_dt)
+    elseif e0==0.0 && θmin_0!=π/2   # circular non-equatorial
+        r0 = p0 * M
+        dC_dt = CircularNonEquatorial.Cdot(r0, dE_dt, dL_dt, a, E0, L0, C0, M)
+        dQ_dt = dC_dt - 2 * (a * E0 - L0) * (dL_dt - a * dE_dt)
+    else   # generic case
+        dQ_dt = 0.0
+        @inbounds for α=1:4, β=1:4
+            dQ_dt += 2 * Kerr.KerrMetric.ξ_μν(t, r, θ, ϕ, a, M, α, β) * (α==1 ? 1. : α==2 ? rdot : α==3 ? θdot : ϕdot) * aSF_BL[β]    # Eq. 32
+        end
+        dC_dt = dQ_dt + 2 * (a * E0 - L0) * (dL_dt - a * dE_dt)
+    end
+
     push!(Qdot, dQ_dt)
+    push!(Cdot, dC_dt)
 
-    push!(Cdot, dQ_dt + 2 * (a * last(EE) - last(LL)) * (last(Ldot) - a * last(Edot)))
+    # compute updated E, L, Q, C and store
+    E1 = E0 + dE_dt * Δt
+    L1 = L0 + dL_dt * Δt
+    Q1 = Q0 + dQ_dt * Δt
+    C1 = C0 + dC_dt * Δt
 
-    # constants of motion
-    append!(EE, ones(nPoints) * (last(EE) + last(Edot) * Δt))
-    append!(LL, ones(nPoints) * (last(LL) + last(Ldot) * Δt))
-    append!(QQ, ones(nPoints) * (last(QQ) + last(Qdot) * Δt))
-    append!(CC, ones(nPoints) * (last(CC) + last(Cdot) * Δt))
+    append!(EE, ones(nPoints) * E1)
+    append!(LL, ones(nPoints) * L1)
+    append!(QQ, ones(nPoints) * Q1)
+    append!(CC, ones(nPoints) * C1)
 
     # since we compute the self force at the end of each piecewise geodesic, the flux in between will be zero
     append!(Edot, zeros(nPoints-1))
@@ -718,10 +891,31 @@ function EvolveConstants(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::F
     append!(Qdot, zeros(nPoints-1))
     append!(Cdot, zeros(nPoints-1))
 
-    #### p, e, θmin ####
+    #### update p, e, θmin ####
 
-    # computing p, e, θmin_BL from updated constants
-    pp, ee, θθ = Kerr.ConstantsOfMotion.peθ_gsl(a, last(EE), last(LL), last(QQ), last(CC), 1.0)
+    # computing p, e, θmin_BL from updated constants. In the circular non-equatorial case we implement the special case to preserve the circularity of the orbit
+    if e0==0.0 && θmin_0!=π/2   # circular non-equatorial
+        dr0_dt = CircularNonEquatorial.r0dot(r0, dE_dt, dL_dt, a, E0, L0, C0, M)
+        pp = p0 + (dr0_dt / M) * Δt
+        ee = 0.0
+
+        ## now calculate θmin
+        # coefficients of polynomial in Eq. E33
+        c0 = C1 / (a^2 * (1.0 - E1^2))
+        c1 = -1.0 - (L1^2 + C1) / (a^2 * (1.0 - E1^2))
+        θθ = acos(sqrt((-c1 - sqrt(c1^2 - 4c0))/2))
+    else
+        pp, ee, θθ = Kerr.ConstantsOfMotion.peθ_gsl(a, E1, L1, Q1, C1, M)
+        # preserve circularity and/or equatorial orbit
+        if e0 == 0.0
+            ee = 0.0
+        end
+
+        if θmin_0 == π/2
+            θθ = π/2
+        end
+    end
+
     append!(pArray, ones(nPoints) * pp)
     append!(ecc, ones(nPoints) * ee)
     append!(θmin, ones(nPoints) * θθ)
@@ -846,8 +1040,6 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         @SArray [ddt, ddr, ddθ, ddϕ]
     end
 
-    fit_fname_params="fit_params_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_nHarm_$(nHarm).txt";
-
     # orbital parameters
     params = @SArray [a, M];
 
@@ -895,7 +1087,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         prob = SecondOrderODEProblem(geodesicEq, ics..., τspan, params);
         
         # println(saveat)
-        if e==0.0
+        if e0==0.0
             sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat, callback = cb);
         else
             sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat);
@@ -979,7 +1171,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         τspanFit0 = (τ0, τSpanMultipoleFit[1])
         prob = SecondOrderODEProblem(geodesicEq, icsMultipoleFit..., τspanFit0, params);
         
-        if e==0.0
+        if e0==0.0
             sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat, callback = cb);
         else
             sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat);
@@ -999,7 +1191,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         # fit from τF-τFit/2 to τF+τFit/2
         prob = SecondOrderODEProblem(geodesicEq, icsMultipoleFit..., τSpanMultipoleFit, params);
         
-        if e==0.0
+        if e0==0.0
             sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_multipole_fit, callback = cb);
         else
             sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_multipole_fit);
@@ -1023,7 +1215,7 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
         println("Length of solution = $(size(ttdot, 1))")
 
         # calculate SF at each point of trajectory and take the sum
-        SelfForce.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt, ttdot, rr, rrdot, rrddot, θθ, θθdot, θθddot, ϕϕ, ϕϕdot, ϕϕddot, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m,compute_at, nHarm, Ωr, Ωθ, Ωϕ, fit_fname_params);
+        SelfForce.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt, ttdot, rr, rrdot, rrddot, θθ, θθdot, θθddot, ϕϕ, ϕϕdot, ϕϕddot, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m,compute_at, nHarm, Ωr, Ωθ, Ωϕ);
 
         EvolveConstants(saveat, a, tt[compute_at], rr[compute_at], θθ[compute_at], ϕϕ[compute_at], ttdot[compute_at], rrdot[compute_at], θθdot[compute_at], ϕϕdot[compute_at], aSF_BL_temp, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin, M, nPoints)
         # store self force values
@@ -1091,9 +1283,6 @@ function compute_inspiral_geodesic!(τOrbit::Float64, nPoints::Int64, nPointsMul
     open(constants_derivs_filename, "w") do io
         writedlm(io, derivs)
     end
-
-    println("Self-force file saved to: " * SF_filename)
-    println("ODE saved to: " * ODE_filename)
 end
 
 #=
@@ -1107,18 +1296,21 @@ end
     we will discard of the data for t>T since it was only computed as an auxiliary for the fitting process.
 =#
 
-function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-12, abstol::Float64=1e-10; data_path::String="Data/")
+function compute_inspiral_HJE!(t_range_factor::Float64, tOrbit::Float64, nPoints::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-12, abstol::Float64=1e-10; data_path::String="Data/")
     # create arrays for trajectory
     t = Float64[]; r = Float64[]; θ = Float64[]; ϕ = Float64[];
     dt_dτ = Float64[]; dr_dt = Float64[]; dθ_dt = Float64[]; dϕ_dt = Float64[];
     d2r_dt2 = Float64[]; d2θ_dt2 = Float64[]; d2ϕ_dt2 = Float64[];
+    # create arrays to store multipole moments necessary for waveform computation
+    Mij2_wf = [Float64[] for i=1:3, j=1:3];
+    Mijk3_wf = [Float64[] for i=1:3, j=1:3, k=1:3];
+    Mijkl4_wf = [Float64[] for i=1:3, j=1:3, k=1:3, l=1:3];
+    Sij2_wf = [Float64[] for i=1:3, j=1:3];
+    Sijk3_wf = [Float64[] for i=1:3, j=1:3, k=1:3];
     
     # initialize data arrays
     aSF_BL = Vector{Vector{Float64}}()
     aSF_H = Vector{Vector{Float64}}()
-    Mijk2_data = [Float64[] for i=1:3, j=1:3, k=1:3]
-    Mij2_data = [Float64[] for i=1:3, j=1:3]
-    Sij1_data = [Float64[] for i=1:3, j=1:3]
     # length of arrays for trajectory: we fit into the "past" and "future", so the arrays will have an odd size (see later code)
     fit_array_length = iseven(nPoints) ? nPoints+1 : nPoints
     xBL = [Float64[] for i in 1:fit_array_length]
@@ -1132,6 +1324,22 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     rH = zeros(fit_array_length)
     aH = [Float64[] for i in 1:fit_array_length]
     a_H = [Float64[] for i in 1:fit_array_length]
+
+    # arrays for multipole moments
+    Mijk2_data = [Float64[] for i=1:3, j=1:3, k=1:3]
+    Mij2_data = [Float64[] for i=1:3, j=1:3]
+    Mijkl2_data = [Float64[] for i=1:3, j=1:3, k=1:3, l=1:3]
+    Sij1_data = [Float64[] for i=1:3, j=1:3]
+    Sijk1_data= [Float64[] for i=1:3, j=1:3, k=1:3]
+
+    # "temporary" mulitpole arrays which contain the multipole data for a given piecewise geodesic
+    Mij2_wf_temp = [Float64[] for i=1:3, j=1:3];
+    Mijk3_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3];
+    Mijkl4_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3, l=1:3];
+    Sij2_wf_temp = [Float64[] for i=1:3, j=1:3];
+    Sijk3_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3];
+
+    # arrays for self-force computation
     Mij5 = zeros(3, 3)
     Mij6 = zeros(3, 3)
     Mij7 = zeros(3, 3)
@@ -1142,8 +1350,6 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     Sij6 = zeros(3, 3)
     aSF_BL_temp = zeros(4)
     aSF_H_temp = zeros(4)
-
-    fit_fname_params="fit_params_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_nHarm_$(nHarm).txt";
 
     # compute apastron
     ra = p * M / (1 - e);
@@ -1192,7 +1398,20 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
         ω = Kerr.ConstantsOfMotion.KerrFreqs(a, p_t, e_t, θmin_t, E_t, L_t, Q_t, C_t, rplus, rminus, M);    # Mino time frequencies
         Ω=ω[1:3]/ω[4]; Ωr=Ω[1]; Ωθ=Ω[2]; Ωϕ=Ω[3];   # BL time frequencies
 
-        T_Fit = 0.5 * minimum(@. 2π/Ω);    # we want to perform each fit over a set of points which span a physical time range T_fit
+        #  we want to perform each fit over a set of points which span a physical time range T_fit. In some cases, the frequencies are infinite, and we thus ignore them in our fitting procedure
+        if e_t == 0.0 && θmin_t == π/2   # circular equatorial
+            Ωr = 1e50; Ωθ =1e50;
+            T_Fit = t_range_factor * minimum(@. 2π/Ωϕ)
+        elseif e_t == 0.0   # circular non-equatorial
+            Ωr = 1e50;
+            T_Fit = t_range_factor * minimum(@. 2π/[Ωθ, Ωϕ])
+        elseif θmin_t == π/2   # non-circular equatorial
+            Ωθ = 1e50;
+            T_Fit = t_range_factor * minimum(@. 2π/[Ωr, Ωϕ])
+        else   # generic case
+            T_Fit = t_range_factor * minimum(@. 2π/Ω)
+        end
+
         saveat = T_Fit / (nPoints-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
 
         # to compute the self force at a point, we must overshoot the solution into the future
@@ -1202,6 +1421,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
 
         saveat_t = range(t0, tF, total_num_points) |> collect
         tspan=(t0, tF)
+        # println(tspan)
 
         # stop when it reaches LSO
         condition(u, t , integrator) = u[1] - rLSO # Is zero when r = rLSO (to 5 d.p)
@@ -1209,15 +1429,16 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
         cb = ContinuousCallback(condition, affect!)
 
         # numerically solve for geodesic motion
-        prob = ODEProblem(HJEvolution.geodesicEq, ics, tspan, params);
+        prob = e == 0.0 ? ODEProblem(HJEvolution.HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJEvolution.HJ_Eqns, ics, tspan, params);
         
-        if e==0.0
-            sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t, callback = cb);
-        else
-            sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
-        end
+        # if e==0.0
+        #     sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t, callback = cb);
+        # else
+        #     sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
+        # end
+      
+        sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
 
-        
         # deconstruct solution
         tt = sol.t;
         psi = sol[1, :];
@@ -1259,20 +1480,51 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
         θ_ddot = HJEvolution.dθ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
         ϕ_ddot = HJEvolution.dϕ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
 
-        ###### MIGHT WANT TO USE VIEWS TO OPTIMIZE A BIT AND AVOID MAKING COPIES IN EACH CALL BELOW ######
+        ###### COMPUTE MULTIPOLE MOMENTS FOR WAVEFORMS ######
+        # store multipole moments for waveform computation
+        if e_t == 0.0 && θmin_t == π/2   # circular equatorial
+            n_freqs=FourierFitGSL.compute_num_fitting_freqs_1(nHarm);
+        elseif e_t != 0.0 && θmin_t != π/2   # generic case
+            n_freqs=FourierFitGSL.compute_num_fitting_freqs_3(nHarm);
+        else   # circular non-equatorial or non-circular equatorial — either way only two non-trivial frequencies
+            n_freqs=FourierFitGSL.compute_num_fitting_freqs_2(nHarm);
+        end
+        
+        # # MIGHT WANT TO USE VIEWS TO OPTIMIZE A BIT AND AVOID MAKING COPIES IN EACH CALL BELOW #
+        chisq=[0.0];
+        compute_waveform_moments_and_derivs!(a, m, M, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt[1:nPoints], rr[1:nPoints], r_dot[1:nPoints], r_ddot[1:nPoints], θθ[1:nPoints], θ_dot[1:nPoints], 
+            θ_ddot[1:nPoints], ϕϕ[1:nPoints], ϕ_dot[1:nPoints], ϕ_ddot[1:nPoints], Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp, Sij2_wf_temp, Sijk3_wf_temp,
+            nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq)
 
-        # store trajectory, ignoring the overshot piece
+        # store trajectory, ignoring the overshot piece, and the waveform multipole moments
         append!(t, tt[1:nPoints]); append!(dt_dτ, Γ[1:nPoints]); append!(r, rr[1:nPoints]); append!(dr_dt, r_dot[1:nPoints]); append!(d2r_dt2, r_ddot[1:nPoints]); 
         append!(θ, θθ[1:nPoints]); append!(dθ_dt, θ_dot[1:nPoints]); append!(d2θ_dt2, θ_ddot[1:nPoints]); append!(ϕ, ϕϕ[1:nPoints]); 
         append!(dϕ_dt, ϕ_dot[1:nPoints]); append!(d2ϕ_dt2, ϕ_ddot[1:nPoints]);
-        
+
+        # store multipole data for waveforms — note that we only save the independent components
+        @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+            if length(indices)==2
+                i1, i2 = indices
+                append!(Mij2_wf[i1, i2], Mij2_data[i1, i2])
+                append!(Sij2_wf[i1, i2], Sij2_wf_temp[i1, i2])
+            elseif length(indices)==3
+                i1, i2, i3 = indices
+                append!(Mijk3_wf[i1, i2, i3], Mijk3_wf_temp[i1, i2, i3])
+                append!(Sijk3_wf[i1, i2, i3], Sijk3_wf_temp[i1, i2, i3])
+            else
+                i1, i2, i3, i4 = indices
+                append!(Mijkl4_wf[i1, i2, i3, i4], Mijkl4_wf_temp[i1, i2, i3, i4])
+            end
+        end
+
         ###### COMPUTE SELF-FORCE ######
-        fit_index_0 = nPoints - (nPoints÷2); fit_index_1 = nPoints + (nPoints÷2); compute_at=(nPoints÷2)+1; n_freqs=FourierFitGSL.compute_num_freqs(nHarm); chisq=[0.0];
+        fit_index_0 = nPoints - (nPoints÷2); fit_index_1 = nPoints + (nPoints÷2); compute_at=(nPoints÷2)+1; 
+
         SelfForce.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt[fit_index_0:fit_index_1], 
-        rr[fit_index_0:fit_index_1], r_dot[fit_index_0:fit_index_1], r_ddot[fit_index_0:fit_index_1], θθ[fit_index_0:fit_index_1], 
-        θ_dot[fit_index_0:fit_index_1], θ_ddot[fit_index_0:fit_index_1], ϕϕ[fit_index_0:fit_index_1], ϕ_dot[fit_index_0:fit_index_1], 
-        ϕ_ddot[fit_index_0:fit_index_1], Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, 
-        Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, nHarm, Ωr, Ωθ, Ωϕ, fit_array_length, n_freqs, chisq, fit_fname_params);
+            rr[fit_index_0:fit_index_1], r_dot[fit_index_0:fit_index_1], r_ddot[fit_index_0:fit_index_1], θθ[fit_index_0:fit_index_1], 
+            θ_dot[fit_index_0:fit_index_1], θ_ddot[fit_index_0:fit_index_1], ϕϕ[fit_index_0:fit_index_1], ϕ_dot[fit_index_0:fit_index_1], 
+            ϕ_ddot[fit_index_0:fit_index_1], Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, 
+            Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, nHarm, Ωr, Ωθ, Ωϕ, fit_array_length, n_freqs, chisq);
 
         # println("t0 = $(t0)")
         # println("tF = $(tF)")
@@ -1326,16 +1578,19 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
         writedlm(io, aSF_BL)
     end
 
-    # number of data points
-    n_OrbPoints = size(r, 1)
 
-    # save trajectory
+
     # save trajectory- rows are: τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
     sol = transpose(stack([t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ]))
     ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
     open(ODE_filename, "w") do io
         writedlm(io, sol)
     end
+
+    # save waveform multipole moments
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).jld2"
+    waveform_dictionary = Dict{String, AbstractArray}("Mij2" => Mij2_wf, "Mijk3" => Mijk3_wf, "Mijkl4" => Mijkl4_wf, "Sij2" => Sij2_wf, "Sijk3" => Sijk3_wf)
+    save(waveform_filename, "data", waveform_dictionary)
 
     # save params
     constants = (EE, LL, QQ, CC, pArray, ecc, θmin)
@@ -1352,9 +1607,52 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPoints::Int64, M::Float64, m::F
     open(constants_derivs_filename, "w") do io
         writedlm(io, derivs)
     end
-
-    println("Self-force file saved to: " * SF_filename)
-    println("ODE saved to: " * ODE_filename)
 end
 
+function load_BL_trajectory(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPoints::Int64, reltol::Float64, data_path::String)
+    # load ODE solution
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    sol = readdlm(ODE_filename)
+    t=sol[1,:]; r=sol[2,:]; θ=sol[3,:]; ϕ=sol[4,:]; dr_dt=sol[5,:]; dθ_dt=sol[6,:]; dϕ_dt=sol[7,:]; d2r_dt2=sol[8,:]; d2θ_dt2=sol[9,:]; d2ϕ_dt2=sol[10,:]; dt_dτ=sol[11,:]
+    return t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ
+end
+
+function load_Mino_trajectory(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPoints::Int64, reltol::Float64, data_path::String)
+    # load ODE solution
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    sol = readdlm(ODE_filename)
+    λ=sol[1,:]; t=sol[2,:]; r=sol[3,:]; θ=sol[4,:]; ϕ=sol[5,:]; dr_dt=sol[6,:]; dθ_dt=sol[7,:]; dϕ_dt=sol[8,:]; d2r_dt2=sol[9,:]; d2θ_dt2=sol[10,:]; d2ϕ_dt2=sol[11,:]; dt_dτ=sol[12,:]
+    return λ, t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ
+end
+
+function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPoints::Int64, reltol::Float64, data_path::String)
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    constants=readdlm(constants_filename)
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).txt"
+    constants_derivs = readdlm(constants_derivs_filename)
+    EE, LL, QQ, CC, pArray, ecc, θmin = constants[1, :], constants[2, :], constants[3, :], constants[4, :], constants[5, :], constants[6, :], constants[7, :]
+    Edot, Ldot, Qdot, Cdot = constants_derivs[1, :], constants_derivs[2, :], constants_derivs[3, :], constants_derivs[4, :]
+    return EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin
+end
+
+function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
+    nHarm::Int64, nPoints::Int64, reltol::Float64, data_path::String)
+    # load waveform multipole moments
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPoints).jld2"
+    waveform_data = load(waveform_filename)["data"]
+    Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
+    Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
+    Mijkl4 = waveform_data["Mijkl4"]; ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
+    Sij2 = waveform_data["Sij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
+    Sijk3 = waveform_data["Sijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+
+    # compute h_{ij} tensor
+    hij = [zeros(length(t)) for i=1:3, j=1:3];
+    SelfForce.hij!(hij, t, obs_distance, Θ, Φ, Mij2, Mijk3, Mijkl4, Sij2, Sijk3)
+
+    # project h_{ij} tensor
+    h_plus = hplus(hij, Θ, Φ);
+    h_cross = hcross(hij, Θ, Φ);
+    return h_plus, h_cross
+end
 end

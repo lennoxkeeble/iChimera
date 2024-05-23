@@ -27,6 +27,9 @@ dependencies = [
     "JLD2",
     "FileIO",
     "GSL",
-    "ProgressBars"
+    "ProgressBars",
+    "GLM",
+    "DataFrames",
+    "FFTW"
 ]
 Pkg.add(dependencies)
