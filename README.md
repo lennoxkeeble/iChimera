@@ -1,5 +1,5 @@
 # GRSuite
-A collection of code written in Julia which numerically computes various objects of interest in GR, including geodesics, extreme-mass-ratio inspirals, and gravitational waveforms. The Examples.ipynb, which is best viewed [here](https://nbviewer.org/github/lennoxkeeble/GRSuite/blob/main/execution/execution_examples.ipynb), demonstrates how the code can be used.
+A collection of code written in Julia which numerically computes various objects of interest in GR, including geodesics, extreme-mass-ratio inspirals, and gravitational waveforms.
 
 ## Components ##
 
