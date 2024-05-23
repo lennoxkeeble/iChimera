@@ -1,17 +1,18 @@
 # GRSuite
-A framework written in Julia which numerically implements various methods in GR, including computing geodesics, extreme-mass-ratio inspirals, and gravitational waveforms. The Examples.ipynb, which is best viewed [here](https://nbviewer.org/github/lennoxkeeble/GRSuite/blob/main/execution/execution_examples.ipynb), demonstrates how the code can be used.
-
-The code uses the methods desribed in detail in Ref. [1] to compute the constants of motion $(E, L, Q)$, which are the dimensionless forms of the energy, z-component of the angular momentum, and Carter's constant, from the constants $(a, p, e, θ_\text{min})$, which are the black hole's spin, the (bound) orbit's semi-latus rectum, eccentricity, and inclination (relative to the z-axis). Further, we implement the method described in Ref. [2] to compute semi-relativistic gravitational waveforms of bound orbits of test-particles, ignoring radiation-reaction effects. The code has the capability to do this both in Kerr, and more generic axisymmetric and stationary spacetimes. Finally, we implement the method described in Ref. [3] to compute fully-relativistc extreme-mass-ratio inspirals (EMRIs), taking into account the effect of the inspiralling compact object gravitationally interacting with itself. Currently, the code only has the capability to compute EMRIs in Kerr, but we expect to generalize this to more general axisymmetric and stationary spacetimes in the near future, though the increase in run-time of such a computation remains to be seen.
-
-Last updated: 01.28.2024
+A collection of code written in Julia which numerically computes various objects of interest in GR, including geodesics, extreme-mass-ratio inspirals, and gravitational waveforms. The Examples.ipynb, which is best viewed [here](https://nbviewer.org/github/lennoxkeeble/GRSuite/blob/main/execution/execution_examples.ipynb), demonstrates how the code can be used.
 
 ## Components ##
 
-* **Geodesics**: the modules located in the file <em>Kerr.jl</em> define various objects specific to Kerr spacetime, e.g., the Kerr metric, the two-rank killing tensor which generates the required symmetry for the third constant of motion $Q$, the Christoffel symbols, etc. Further,  <em>Kerr.jl</em> and <em>NumericalGeodesics.jl</em> contain code which numerically solves the geodesic equation in Kerr, and general axisymmetric and stationary spacetimes respectively.
+* **Geodesics**: code which numerically solves the geodesic equation in Kerr can be found in the <em>Kerr.jl</em> file, while code for computing geodesics in more general axisymmetric and stationary spacetimes can be found in <em>NumericalGeodesics.jl</em>. Code for solving the separated Hamilton-Jacobi geodesic equations in both Boyer-Lindquist (BL) time and Mino time can be found in <em>HamiltonJacobiEvolution.jl</em> and <em>MinoTimeEvolution.jl</em>, respecitvely.
 
-* **Gravitational waveforms**: the file <em>KludgeWaveforms.jl</em> contains functions which compute the gravitational waveform of a particle's trajectory in some axisymmetric and stationary spacetime. We compute semi-relativistic waveforms using the method described in [2], for which we do not take into account radiation reaction effects. We compute fully relativistic waveforms according to the method in [3].
+* **Constants of motion**: mappings between the sets of parameters $\mathcal{I}=(E, L_{z}, Q)$ and $\mathcal{O}=(p, e, θ_\text{min})$ (in both directions) can be found in the  <em>Kerr.jl</em> file. In particular, we provide code which implements
+  * The method presented in Ref. [1] for the mapping $\mathcal{I}\to\mathcal{O}$, and computing the fundamental frequencies with respect to proper time and BL time from the parameters $\mathcal{I}$.
+  * The method presented in Ref. [3] for the mappings $\mathcal{I}\leftrightarrow\mathcal{O}$, and computing the fundamental frequencies with respect to Mino time and BL time from the parameters $\mathcal{I}$. Note that their method for computing the fundamental frequencies is essentially the same as that in Ref. [4].
+  * The method presented in Ref. [5] for the mapping $\mathcal{O}\to\mathcal{I}$.
 
-* **EMRIs**: the file <em>SelfForce.jl</em> contains code that computes the self-acceleration of an inspiralling compact object, and a master function which constructs the EMRI trajectory using the method in Ref. [3]. Essentially, the crux of the method is that the EMRI trajectory, which is not a geodesic, is constructed of many "small" pieces which are themselves geodesics tangent to the EMRI trajectory. This is possible because the time scale of radiation-reaction effects is much longer than the orbital periods (i.e., those related to the fundamental frequencies of the many geodesic pieces). The user specifies the number of points along the piecewise geodesics, at the end of which we calculate the average self-force along the entire piece, which is then used to update the geodesic equation. Currently, the functionality of this code is limited to computing just the inspiral and the self-acceleration. We expect to add capabilities to compute the evolution of the constants of motion in the near future.
+* **Numerical Kludge gravitational waveforms** the file <em>KludgeWaveforms.jl</em> contains code which computes the gravitational waveform for a particle on a bound orbit around a Kerr black hole, i.e., ignoring radiation-reaction effects, using the method described in Ref. [2]. We also provide code which computes these semi-relativistic waveforms for more general axisymmetric and stationary spacetimes.
+
+* **EMRIs**: the file <em>SelfForce.jl</em> contains code which computes a fully-relativistic inspiral based on the model described in detail in Ref. [3], which treats the self-force locally and non-adiabtically. In this approach, one makes use of the method of osculating orbits, wherein one utilizes the fact that the radiation-reaction time scale is much larger than the orbital timescale. This allows one to treat the EMRI trajectory as comprised of many "small" piecewise geodesics which are tangent to the EMRI trajectory at different points. One then moves between successive geodesics by (locally) computing the self-force at the end of the previous one, using this to update the values of the contstans $\mathcal{I}$ and $\mathcal{O}$, and then computing the next geodesic with these updated parameters. See the [examples notebook](https://nbviewer.org/github/lennoxkeeble/GRSuite/blob/main/execution/execution_examples.ipynb) for code which compute EMRIs based on this method in addition to plotting the evolution of the constants of motion and the gravitational waveform.
 
 * **Plotting**: the file <em>GRPlotLib.jl</em> contains useful code for making plots of trajectories, waveforms, and the effective potential. The functions are not at all robust, but serve to provide a starting point for some basic plots to interpret the solutions generated by the other modules in this package.  
 
@@ -22,13 +23,14 @@ All the dependencies are located in the <em>dependencies.jl</em> file. Simply ru
 ## Limitations and known possible performance issues ##
 
 * This code has only been tested on Mac OS.
-* Further tests assessing the accuracy of the EMRI trajectory are to be carried out. For example, we take very high order numerical derivatives of the multipole moments, and we have not yet systematially determined the accuracy with which we are doing so. Note that this differs from the approach in Ref. [3], wherein they use the separability of the Hamilton-Jacobi equations in Kerr to fit the derivatives to a complex fourier series expansion in terms of the fundamental frequencies. Unfortunately, there is not yet a robust capability in Julia which allows fitting with complex parameters. As such, we have, for now, instead opted for numerical differentation to obtain the higher order derivatives of the multiplole moments.
-* Currently, the code can only compute EMRIs in Kerr, though we expect to generalize this to more general axisymmetric and stationary spacetimes in the near future.
+* The main bottleneck in the runtime of this code is fitting the multipole moments, which are used to compute the self-force, to their fourier series expansion in either Mino time or BL time in order to reliably take high-order derivatives by differentiating the analytic expression of the fourier series (see Ref. [3] for futher detail). We also provide code which takes these derivatives numerically in Mino time, offering a significant (~20x) speedup in comparison to carrying out least-squares fits. In our limited testing so far, computing the inspiral using numerical differentiation in Mino time appears to be at least as accurate as with the fits, though tests for more points in the parameter space are to be carried out.
 
 ## Authors ##
 
 - Lennox Keeble
-- Alejandro Cardenas-Avendano 
+- Alejandro Cardenas-Avendano
+
+Last updated: 05.23.2024
 
 ## References ##
 [1] Schmidt, W. Celestial mechanics in Kerr spacetime. [arXiv:gr-qc/0202090](https://arxiv.org/abs/gr-qc/0202090)
@@ -36,6 +38,10 @@ All the dependencies are located in the <em>dependencies.jl</em> file. Simply ru
 [2] Babak, S., et al. "Kludge" gravitational waveforms for a test-body orbiting a Kerr black hole. [arXiv:gr-qc/0607007v2](https://arxiv.org/abs/gr-qc/0607007v2)
 
 [3] Sopuerta, C., & Yunes, N. New Kludge Scheme for the Construction of Approximate Waveforms for Extreme-Mass-Ratio Inspirals. [arXiv:1109.0572](https://arxiv.org/abs/1109.0572)
+
+[4] Fujita, R., & Hikida, W. Analytical solutions of bound timelike geodesic orbits in Kerr spacetime. [arXiv:0906.1420v2](https://arxiv.org/abs/0906.1420)
+
+[5] Hughes, S. A. Parameterizing black hole orbits for adiabatic inspiral. [arXiv:2401.09577v2](https://arxiv.org/abs/2401.09577)
 
 ## MIT License
 
