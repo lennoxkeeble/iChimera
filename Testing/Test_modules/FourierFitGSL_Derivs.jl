@@ -134,6 +134,7 @@ function fill_gsl_vectors!(xGSL::Ptr{gsl_vector}, yGSL::Ptr{gsl_vector}, x::Vect
         # zeroth deriv
         GSL.vector_set(xGSL, i, x[i+1])
         GSL.vector_set(yGSL, i, y[i+1])
+        
         # first deriv
         GSL.vector_set(xGSL, i+n_p, x[i+1])
         GSL.vector_set(yGSL, i+n_p, y_1[i+1])

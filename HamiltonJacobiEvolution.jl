@@ -70,17 +70,7 @@ function HJ_ics(ri::Float64, p::Float64, e::Float64, M::Float64)
     return @SArray [psi_i, chi_i, ϕi]
 end
 
-# equation for ODE solver
-function HJ_Eqns(u, params, t)
-    @SArray [psi_dot(u..., params...), chi_dot(u..., params...), phi_dot(u..., params...)]
-end
-
-function HJ_Eqns_circular(u, params, t)
-    @SArray [0.0, chi_dot(u..., params...), phi_dot(u..., params...)]
-end
-
-# computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
-function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64, nPoints::Int64, tmax::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-12, abstol::Float64=1e-10, saveat::Float64=0.5; data_path::String="Results/")
+function compute_ODE_params(a::Float64, p::Float64, e::Float64, θi::Float64)
     # orbital parameters
     M = 1.0;
 
@@ -101,13 +91,39 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64,
     p3 = r3 * (1.0 - e) / M; p4 = r4 * (1.0 + e) / M    # Above Eq. 96
 
     # array of params for ODE solver
+    return E, L, Q, C, ra, p3, p4, zp, zm
+end
+
+# equation for ODE solver
+function HJ_Eqns(u, params, t)
+    @SArray [psi_dot(u..., params...), chi_dot(u..., params...), phi_dot(u..., params...)]
+end
+
+function HJ_Eqns_circular(u, params, t)
+    @SArray [0.0, chi_dot(u..., params...), phi_dot(u..., params...)]
+end
+
+# computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
+function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64, nPoints::Int64, specify_ics::Bool, specify_params::Bool,
+    tmax::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10; ics::SVector{3, Float64}=SA[0.0, 0.0, 0.0],
+    E::Float64=0.0, L::Float64=0.0, Q::Float64=0.0, C::Float64=0.0, ra::Float64=0.0, p3::Float64=0.0, p4::Float64=0.0, zp::Float64=0.0,
+    zm::Float64=0.0, data_path::String="Results/", save_to_file::Bool=false, inspiral::Bool=false)
+
+    M=1.;
+    if !specify_params
+        E, L, Q, C, ra, p3, p4, zp, zm = compute_ODE_params(a, p, e, θi)
+    end
     params = @SArray [a, M, E, L, p, e, θi, p3, p4, zp, zm]
 
-    # initial conditions for Kerr geodesic trajectory
-    ri = ra; tspan = (0.0, tmax); saveat_t = range(start=tspan[1], length=nPoints, stop=tspan[2])
+    if !specify_ics
+        # initial conditions for Kerr geodesic trajectory
+        ri = ra; # start at apastron
+        ics = HJ_ics(ri, p, e, M);
+    end
 
-    ics = HJ_ics(ri, p, e, M);
-    prob = e == 0 ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJ_Eqns, ics, tspan, params);
+    tspan = (0.0, tmax); saveat_t = range(start=tspan[1], length=nPoints, stop=tspan[2])
+
+    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJ_Eqns, ics, tspan, params);
     sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
  
     # deconstruct solution
@@ -135,14 +151,141 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64,
     θ_ddot = HJEvolution.dθ2_dt2.(t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, a, M)
     ϕ_ddot = HJEvolution.dϕ2_dt2.(t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, a, M)
 
-    # save trajectory- rows are: t, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
-    sol = transpose(stack([t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, r_ddot, θ_ddot, ϕ_ddot, dt_dτ]))
-    mkpath(data_path)
-    ODE_filename=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(reltol).txt"
-    open(ODE_filename, "w") do io
-        writedlm(io, sol)
+    if inspiral
+        return t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, r_ddot, θ_ddot, ϕ_ddot, dt_dτ, psi, chi
+    else
+        # save trajectory- rows are: t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
+        sol = [reshape(t, 1, nPoints); reshape(r, 1, nPoints); reshape(θ, 1, nPoints); reshape(ϕ, 1, nPoints);
+                reshape(r_dot, 1, nPoints); reshape(θ_dot, 1, nPoints); reshape(ϕ_dot, 1, nPoints); reshape(r_ddot, 1, nPoints);
+                reshape(θ_ddot, 1, nPoints); reshape(ϕ_ddot, 1, nPoints); reshape(dt_dτ, 1, nPoints); reshape(psi, 1, nPoints); reshape(chi, 1, nPoints)]
+        
+        if save_to_file
+            mkpath(data_path)
+            ODE_filename=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(diff(saveat_t)[1])_T_$(tmax)_tol_$(reltol).txt"
+            open(ODE_filename, "w") do io
+                writedlm(io, sol)
+            end
+            println("ODE saved to: " * ODE_filename)
+        else
+            return sol
+        end
     end
-    println("ODE saved to: " * ODE_filename)
+end
+
+### evolution into the past ###
+# equation for ODE solver
+function HJ_Eqns_past(u, params, t)
+    @SArray [-psi_dot(u..., params...), -chi_dot(u..., params...), -phi_dot(u..., params...)]
+end
+
+function HJ_Eqns_circular_past(u, params, t)
+    @SArray [-0.0, -chi_dot(u..., params...), -phi_dot(u..., params...)]
+end
+
+# computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
+function compute_kerr_geodesic_past(a::Float64, p::Float64, e::Float64, θi::Float64, nPoints::Int64, specify_ics::Bool, specify_params::Bool,
+    tmax::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10; ics::SVector{3, Float64}=SA[0.0, 0.0, 0.0],
+    E::Float64=0.0, L::Float64=0.0, Q::Float64=0.0, C::Float64=0.0, ra::Float64=0.0, p3::Float64=0.0, p4::Float64=0.0, zp::Float64=0.0,
+    zm::Float64=0.0, data_path::String="Results/", save_to_file::Bool=false, inspiral::Bool=false)
+    M=1.;
+
+    if !specify_params
+        E, L, Q, C, ra, p3, p4, zp, zm = compute_ODE_params(a, p, e, θi)
+    end
+
+    params = @SArray [a, M, E, L, p, e, θi, p3, p4, zp, zm]
+
+    if !specify_ics
+        # initial conditions for Kerr geodesic trajectory
+        ra = p * M / (1.0 - e); ri = ra; 
+        ics = HJ_ics(ri, p, e, M);
+    end
+
+    tspan = (0.0, tmax); saveat_t = range(start=tspan[1], length=nPoints, stop=tspan[2])
+    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular_past, ics, tspan, params) : ODEProblem(HJ_Eqns_past, ics, tspan, params);
+    sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
+ 
+    # deconstruct solution
+    t = -sol.t;
+    psi = sol[1, :];
+    chi = mod.(sol[2, :], 2π);
+    ϕ = sol[3, :];
+
+    # compute time derivatives
+    psi_dot = HJEvolution.psi_dot.(psi, chi, ϕ, a, M, E, L, p, e, θi, p3, p4, zp, zm)
+    chi_dot = HJEvolution.chi_dot.(psi, chi, ϕ, a, M, E, L, p, e, θi, p3, p4, zp, zm)
+    ϕ_dot = HJEvolution.phi_dot.(psi, chi, ϕ, a, M, E, L, p, e, θi, p3, p4, zp, zm)
+
+    # compute BL coordinates t, r, θ and their time derivatives
+    r = HJEvolution.r.(psi, p, e, M)
+    θ = [acos((π/2<chi[i]<1.5π) ? -sqrt(HJEvolution.z(chi[i], θi)) : sqrt(HJEvolution.z(chi[i], θi))) for i in eachindex(chi)]
+
+    r_dot = dr_dt.(psi_dot, psi, p, e, M);
+    θ_dot = dθ_dt.(chi_dot, chi, θ, θi);
+    v = [[r_dot[i], θ_dot[i], ϕ_dot[i]] for i in eachindex(t)];
+    dt_dτ = @. Γ(t, r, θ, ϕ, v, a, M)
+
+    # substitute solution back into geodesic equation to find second derivatives of BL coordinates (wrt t)
+    r_ddot = HJEvolution.dr2_dt2.(t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, a, M)
+    θ_ddot = HJEvolution.dθ2_dt2.(t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, a, M)
+    ϕ_ddot = HJEvolution.dϕ2_dt2.(t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, a, M)
+
+    # reverse so time increases with successive columns
+    reverse!(t); reverse!(r); reverse!(θ); reverse!(ϕ); reverse!(r_dot); reverse!(θ_dot); reverse!(ϕ_dot);
+    reverse!(r_ddot); reverse!(θ_ddot); reverse!(ϕ_ddot); reverse!(dt_dτ); reverse!(psi); reverse!(chi);
+
+    if inspiral
+        # remove t=0 data which will be duplicated
+        pop!(t); pop!(r); pop!(θ); pop!(ϕ); pop!(r_dot); pop!(θ_dot); pop!(ϕ_dot);
+        pop!(r_ddot); pop!(θ_ddot); pop!(ϕ_ddot); pop!(dt_dτ); pop!(psi); pop!(chi);
+        return t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, r_ddot, θ_ddot, ϕ_ddot, dt_dτ, psi, chi
+    else
+        # save trajectory- rows are: t, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
+        sol = [reshape(t, 1, nPoints); reshape(r, 1, nPoints); reshape(θ, 1, nPoints); reshape(ϕ, 1, nPoints);
+            reshape(r_dot, 1, nPoints); reshape(θ_dot, 1, nPoints); reshape(ϕ_dot, 1, nPoints); reshape(r_ddot, 1, nPoints);
+            reshape(θ_ddot, 1, nPoints); reshape(ϕ_ddot, 1, nPoints); reshape(dt_dτ, 1, nPoints); reshape(psi, 1, nPoints); reshape(chi, 1, nPoints)]
+            
+        if save_to_file
+            mkpath(data_path)
+            ODE_filename=data_path * "HJ_ODE_past_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(reltol).txt"
+            open(ODE_filename, "w") do io
+                writedlm(io, sol)
+            end
+            println("ODE saved to: " * ODE_filename)
+        else
+            return sol
+        end
+    end
+end
+
+# computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
+function compute_kerr_geodesic_past_and_future(ics::SVector{3, Float64}, a::Float64, p::Float64, e::Float64, θmin::Float64, 
+    specify_params::Bool, total_num_points::Int64, total_time_range::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10;
+    E::Float64=0.0, L::Float64=0.0, Q::Float64=0.0, C::Float64=0.0, ra::Float64=0.0, p3::Float64=0.0, p4::Float64=0.0, zp::Float64=0.0,
+    zm::Float64=0.0, data_path::String="Results/", inspiral::Bool=false)
+    save_to_file = false;
+    use_custom_ics = true;
+    nPoints = total_num_points÷2 + mod(total_num_points, 2);
+    tmax = total_time_range/2.0;
+    if inspiral
+        # future part of geodesic
+        t_f, r_f, θ_f, ϕ_f, r_dot_f, θ_dot_f, ϕ_dot_f, r_ddot_f, θ_ddot_f, ϕ_ddot_f, Γ_f, psi_f, chi_f = HJEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol; 
+        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file, inspiral=true)
+
+        # past part of geodesic
+        t_p, r_p, θ_p, ϕ_p, r_dot_p, θ_dot_p, ϕ_dot_p, r_ddot_p, θ_ddot_p, ϕ_ddot_p, Γ_p, psi_p, chi_p = HJEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol;
+        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file, inspiral=true)
+
+        # merge
+        return [t_p; t_f], [r_p; r_f], [θ_p; θ_f], [ϕ_p; ϕ_f], [r_dot_p; r_dot_f], [θ_dot_p; θ_dot_f], [ϕ_dot_p; ϕ_dot_f], [r_ddot_p; r_ddot_f],
+        [θ_ddot_p; θ_ddot_f], [ϕ_ddot_p; ϕ_ddot_f], [Γ_p; Γ_f], [psi_p; psi_f], [chi_p; chi_f]
+    else
+        geodesic_future = HJEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol; 
+        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
+        geodesic_past = HJEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol;
+        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
+        return hcat(geodesic_past[:, 1:(nPoints-1)], geodesic_future)
+    end
 end
 
 end
