@@ -1,0 +1,25 @@
+# include("dependencies.jl")
+include("/home/lkeeble/GRSuite/Testing/Test_modules/ConstructSymmetricArrays.jl")
+include("FiniteDiff.jl")
+include("CircularNonEquatorial.jl")
+include("Kerr.jl");
+include("HamiltonJacobiEvolution.jl")
+include("MinoTimeEvolution.jl")
+include("NumericalGeodesics.jl");
+include("HarmonicCoords.jl");
+include("Testing/Test_modules/FourierFitGSL.jl");
+include("Testing/Test_modules/FourierFitGSL_Derivs.jl");
+include("/home/lkeeble/GRSuite/Testing/Test_modules/MinoTimeBLTimeDerivs.jl");
+include("/home/lkeeble/GRSuite/Testing/Test_modules/ParameterizedDerivs.jl");
+include("SelfForce.jl");
+include("SelfForce_numerical.jl");
+include("SemiRelativisticKludge.jl");
+include("EffPotential.jl");
+include("GRPlotLib.jl");
+include("/home/lkeeble/GRSuite/Testing/Test_modules/RyanFluxes.jl")
+include("/home/lkeeble/GRSuite/Testing/Test_modules/RyanInspiral.jl")
+include("/home/lkeeble/GRSuite/Testing/Test_modules/MinoInspiral.jl")
+include("/home/lkeeble/GRSuite/Testing/Test_modules/FFTFunctions.jl")
+include("/home/lkeeble/GRSuite/Testing/Test_modules/TestFits.jl")
+include("/home/lkeeble/GRSuite/EvolveConstants.jl")
+include("/home/lkeeble/GRSuite/InspiralEvolution.jl")
