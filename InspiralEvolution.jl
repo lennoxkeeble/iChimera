@@ -1148,7 +1148,12 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float
         λλ_stencil, tt_stencil, rr_stencil, θθ_stencil, ϕϕ_stencil, r_dot_stencil, θ_dot_stencil, ϕ_dot_stencil, r_ddot_stencil, θ_ddot_stencil, ϕ_ddot_stencil, Γ_stencil, psi_stencil, chi_stencil, dt_dλ_stencil = 
         MinoEvolution.compute_kerr_geodesic_past_and_future(midpoint_ics, a, p_t, e_t, θmin_t, use_specified_params, stencil_array_length, T_Fit, Δλi, reltol, abstol;
         E=E_t, L=L_t, Q=Q_t, C=C_t, ra=ra, p3=p3,p4=p4, zp=zp, zm=zm, inspiral=true)
-
+        
+        # println(length(λλ_stencil))
+        # println(λλ_stencil)
+        # println(diff(λλ_stencil))
+        # throw(DomainError())
+        # break
 
         compute_at=stencil_array_length÷2+1;    # by construction, the end point of the physical geoodesic is at the center of the stencil array for the future and past geodesic
         # check that that the midpoint of the fit geodesic arrays are equal to the final point of the physical arrays

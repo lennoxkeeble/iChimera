@@ -30,6 +30,7 @@ dependencies = [
     "ProgressBars",
     "GLM",
     "DataFrames",
-    "FFTW"
+    "FFTW",
+    "Interpolations"
 ]
 Pkg.add(dependencies)

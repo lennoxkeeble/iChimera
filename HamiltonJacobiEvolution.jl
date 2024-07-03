@@ -64,7 +64,7 @@ end
 
 # initial conditions for bound kerr orbits starting in equatorial plane
 function HJ_ics(ri::Float64, p::Float64, e::Float64, M::Float64)
-    psi_i = e==0 ? 0.0 : acos((p * M / ri - 1.0) / e)    # Eq. 89 --- for circular orbits set ψ = 0
+    psi_i = e==0 ? 0.0 : π    # Eq. 89 --- for circular orbits set ψ = 0, otherwise we start the orbit at apastron
     chi_i = 0.0    # Eq. 89 - since we start orbit at θ = θmin
     ϕi = 0.0    # by axisymmetry can start orbit at ϕ = 0
     return @SArray [psi_i, chi_i, ϕi]

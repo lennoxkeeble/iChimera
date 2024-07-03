@@ -4,9 +4,11 @@ c = 2.99792458 * 1e8; Grav_Newton = 6.67430 * 1e-11; Msol = (1.988) * 1e30; year
 
 ### (initial) orbital parameters ###
 Mass_MBH = 1e6 * Msol;   # mass of the MBH — sets evolution time
-a = 0.98;   # spin
-p = 7.0;   # semi-latus rectum
-e = 0.6;   # eccentricity
+# a = 0.98;   # spin
+a = 0.05;   # spin
+# p = 7.0;   # semi-latus rectum
+p = 15.0;   # semi-latus rectum
+e = 0.1;   # eccentricity
 q = 1e-5;   # mass ratio m/M
 θmin = 0.570798;   # θmin
 

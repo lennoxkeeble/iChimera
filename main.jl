@@ -13,7 +13,7 @@ include("/home/lkeeble/GRSuite/Testing/Test_modules/MinoTimeBLTimeDerivs.jl");
 include("/home/lkeeble/GRSuite/Testing/Test_modules/ParameterizedDerivs.jl");
 include("SelfForce.jl");
 include("SelfForce_numerical.jl");
-include("KludgeWaveforms.jl");
+include("SemiRelativisticKludge.jl");
 include("EffPotential.jl");
 include("GRPlotLib.jl");
 include("/home/lkeeble/GRSuite/Testing/Test_modules/RyanFluxes.jl")
