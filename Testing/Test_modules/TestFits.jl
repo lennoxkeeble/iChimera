@@ -5,7 +5,7 @@ In this module we write several functions which we repeatedly use in analysing t
 =#
 
 module TestFitsBLTime
-using DelimitedFiles, Peaks, ..HJEvolution, ..FourierFitGSL, ..FourierFitGSL_Derivs, JLD2, FileIO
+using DelimitedFiles, Peaks, ..BLTimeEvolution, ..FourierFitGSL, ..FourierFitGSL_Derivs, JLD2, FileIO
 using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6, ..FourierFunctions, ..Kerr
 
 # returns elements-wise percentage deviation between two arrays
@@ -38,7 +38,7 @@ function compute_fit(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt::Fun
     tmax =  t_range_factor * minimum(@. 2π/Ω[Ω .< 1e9]); saveat = tmax / (nPoints-1); Δti=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(kerrReltol).txt"
@@ -148,7 +148,7 @@ function compute_fit_FFT(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt:
     tmax =  t_range_factor * minimum(@. 2π/Ω[Ω .< 1e9]); saveat = tmax / (nPoints-1); Δti=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(kerrReltol).txt"
@@ -265,7 +265,7 @@ function extract_fourier_transform(f::Function, a::Float64, p::Float64, e::Float
     t_max_FFT = t_range_factor_FFT * minimum(@. 2π/Ω[Ω .< 1e9]); saveat_FFT = t_max_FFT / (nPointsFFT-1); Δti=saveat_FFT;
 
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, t_max_FFT, Δti, kerrReltol, kerrAbstol, saveat_FFT, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, t_max_FFT, Δti, kerrReltol, kerrAbstol, saveat_FFT, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat_FFT)_T_$(t_max_FFT)_tol_$(kerrReltol).txt"
@@ -289,7 +289,7 @@ end
 # function to extract fourier frequencies from geodesic data
 function extract_fourier_transform(f::Function, a::Float64, p::Float64, e::Float64, θi::Float64, tmax::Float64, Δti::Float64, saveat::Float64, nPointsFFT::Int64, kerrReltol::Float64, kerrAbstol::Float64, data_path::String)
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(kerrReltol).txt"
@@ -313,7 +313,7 @@ end
 end
 
 module TestFitsMinoTime
-using DelimitedFiles, Peaks, ..MinoEvolution, ..FourierFitGSL, JLD2, FileIO, ..MinoTimeDerivs, ..ParameterizedDerivs
+using DelimitedFiles, Peaks, ..MinoTimeEvolution, ..FourierFitGSL, JLD2, FileIO, ..MinoTimeDerivs, ..ParameterizedDerivs
 using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6, ..FourierFunctions, ..Kerr, ..TestFitsBLTime
 
 ##### define function to carry out fit and store fit parameters #####
@@ -333,7 +333,7 @@ function compute_fit(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt::Fun
     λmax =  t_range_factor * minimum(@. 2π/ω[ω .< 1e9]); saveat = λmax / (nPoints-1); Δλi=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    @time MinoEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    @time MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
     
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "Mino_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(λmax)_tol_$(kerrReltol).txt"
@@ -440,7 +440,7 @@ function compute_fit_FFT(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt:
     λmax =  t_range_factor * minimum(@. 2π/ω[ω .< 1e9]); saveat = λmax / (nPoints-1); Δλi=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    @time MinoEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    @time MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
     
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "Mino_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(λmax)_tol_$(kerrReltol).txt"
@@ -597,7 +597,7 @@ function extract_fourier_transform(f::Function, a::Float64, p::Float64, e::Float
     λmax =  t_range_factor_FFT * minimum(@. 2π/ω[ω .< 1e9]); saveat = λmax / (nPointsFFT-1); Δλi=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    @time MinoEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    @time MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
     
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "Mino_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(λmax)_tol_$(kerrReltol).txt"
@@ -620,7 +620,7 @@ end
 
 # function to extract fourier frequencies from geodesic data
 function extract_fourier_transform(f::Function, a::Float64, p::Float64, e::Float64, θi::Float64, λmax::Float64, Δλi::Float64, saveat::Float64, nPointsFFT::Int64, kerrReltol::Float64, kerrAbstol::Float64, data_path::String)
-    @time MinoEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    @time MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
     
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "Mino_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(λmax)_tol_$(kerrReltol).txt"
@@ -644,7 +644,7 @@ end
 end
 
 module TestFitsDerivs
-using DelimitedFiles, Peaks, ..HJEvolution, ..FourierFitGSL_Derivs, JLD2, FileIO
+using DelimitedFiles, Peaks, ..BLTimeEvolution, ..FourierFitGSL_Derivs, JLD2, FileIO
 using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6, ..FourierFunctions, ..Kerr
 
 # compute fit to Boyer-Lindquist r
@@ -664,7 +664,7 @@ function compute_fit(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt::Fun
     tmax =  t_range_factor * minimum(@. 2π/Ω[Ω .< 1e9]); saveat = tmax / (nPoints-1); Δti=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(kerrReltol).txt"
@@ -768,7 +768,7 @@ end
 end
 
 module TestFitsFDM
-using DelimitedFiles, Peaks, ..MinoEvolution, JLD2, FileIO, ..MinoTimeDerivs, ..ParameterizedDerivs
+using DelimitedFiles, Peaks, ..MinoTimeEvolution, JLD2, FileIO, ..MinoTimeDerivs, ..ParameterizedDerivs
 using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6, ..FourierFunctions, ..Kerr, ..TestFitsBLTime, ..FiniteDiff_5
 
 ##### define function to carry out fit and store fit parameters #####
@@ -784,8 +784,8 @@ function compute_orbital_functional_derivs(f::Function, df_dt::Function, d2f_dt:
     saveat_λ = range(start=λ0, step=h, length=nPoints)|>collect
     λspan=(saveat_λ[1], last(saveat_λ))
     Δλi = h/10
-    ics = MinoEvolution.Mino_ics(t0, ra, p, e, M);
-    sol = MinoEvolution.compute_kerr_geodesic_inspiral(a, p, e, θi, E, L, Q, C, M, ics, saveat_λ, λspan, Δλi, kerrReltol, kerrAbstol)
+    ics = MinoTimeEvolution.Mino_ics(t0, ra, p, e, M);
+    sol = MinoTimeEvolution.compute_kerr_geodesic_inspiral(a, p, e, θi, E, L, Q, C, M, ics, saveat_λ, λspan, Δλi, kerrReltol, kerrAbstol)
 
     λ=sol[1,:]; r=sol[3,:]; θ=sol[4,:]; ϕ=sol[5,:]; dr_dt=sol[6,:]; 
     dθ_dt=sol[7,:]; dϕ_dt=sol[8,:]; d2r_dt=sol[9,:]; d2θ_dt=sol[10,:]; d2ϕ_dt=sol[11,:]; dt_dλ=sol[12,:];

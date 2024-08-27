@@ -4,7 +4,9 @@ using ..Kerr
 using ..CircularNonEquatorial
 using ..HarmonicCoords
 
-function Evolve_BL(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64, aSF_BL::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray, CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
+function Evolve_BL(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64,
+    aSF_BL::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray,
+    CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
     # first load orbital constants of previous geodesic (recall that we compute updated constants to move to the next geodesic in the inspiral)
     E0 = last(EE); L0 = last(LL); Q0 = last(QQ); C0 = last(CC); p0 = last(pArray); e0 = last(ecc); θmin_0 = last(θmin);
     
@@ -48,18 +50,12 @@ function Evolve_BL(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::Float64
     Q1 = Q0 + dQ_dt * Δt
     C1 = C0 + dC_dt * Δt
 
-    append!(EE, ones(nPoints) * E1)
-    append!(LL, ones(nPoints) * L1)
-    append!(QQ, ones(nPoints) * Q1)
-    append!(CC, ones(nPoints) * C1)
+    push!(EE, E1)
+    push!(LL, L1)
+    push!(QQ, Q1)
+    push!(CC, C1)
 
-    # since we compute the self force at the end of each piecewise geodesic, the flux in between will be zero
-    append!(Edot, zeros(nPoints-1))
-    append!(Ldot, zeros(nPoints-1))
-    append!(Qdot, zeros(nPoints-1))
-    append!(Cdot, zeros(nPoints-1))
-
-    #### update p, e, θmin ####
+    ### update p, e, θmin ####
 
     # computing p, e, θmin_BL from updated constants. In the circular non-equatorial case we implement the special case to preserve the circularity of the orbit
     if e0==0.0 && θmin_0!=π/2   # circular non-equatorial
@@ -84,9 +80,9 @@ function Evolve_BL(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::Float64
         end
     end
 
-    append!(pArray, ones(nPoints) * pp)
-    append!(ecc, ones(nPoints) * ee)
-    append!(θmin, ones(nPoints) * θθ)
+    push!(pArray, pp)
+    push!(ecc, ee)
+    push!(θmin, θθ)
 end
 
 Killing_temporal_H(a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, M::Float64) = @SVector [Kerr.KerrMetric.g_tt(t, r, θ, ϕ, a, M), Kerr.KerrMetric.g_tϕ(t, r, θ, ϕ, a, M) * HarmonicCoords.∂ϕ_∂xH(xH, a, M),
@@ -109,26 +105,30 @@ function Killing_tensor_H(a::Float64, xH::AbstractArray, t::Float64, r::Float64,
     tensor[1, 4] = ξtϕ * jBLH[3, 3]; tensor[4, 1] = tensor[1, 4]
 
     # spatial components
-    tensor[2, 2] = ξrr * jBLH[1, 1] * jBLH[1, 1] + ξθθ * jBLH[2, 1] * jBLH[2, 1] * ξϕϕ * jBLH[3, 1] * jBLH[3, 1]
-    tensor[2, 3] = ξrr * jBLH[1, 1] * jBLH[1, 2] + ξθθ * jBLH[2, 1] * jBLH[2, 2] * ξϕϕ * jBLH[3, 1] * jBLH[3, 2]; tensor[3, 2] = tensor[2, 3]
-    tensor[2, 4] = ξrr * jBLH[1, 1] * jBLH[1, 3] + ξθθ * jBLH[2, 1] * jBLH[2, 3] * ξϕϕ * jBLH[3, 1] * jBLH[3, 3]; tensor[4, 2] = tensor[2, 4]
+    tensor[2, 2] = ξrr * jBLH[1, 1] * jBLH[1, 1] + ξθθ * jBLH[2, 1] * jBLH[2, 1] + ξϕϕ * jBLH[3, 1] * jBLH[3, 1]
+    tensor[2, 3] = ξrr * jBLH[1, 1] * jBLH[1, 2] + ξθθ * jBLH[2, 1] * jBLH[2, 2] + ξϕϕ * jBLH[3, 1] * jBLH[3, 2]; tensor[3, 2] = tensor[2, 3]
+    tensor[2, 4] = ξrr * jBLH[1, 1] * jBLH[1, 3] + ξθθ * jBLH[2, 1] * jBLH[2, 3] + ξϕϕ * jBLH[3, 1] * jBLH[3, 3]; tensor[4, 2] = tensor[2, 4]
 
-    tensor[3, 3] = ξrr * jBLH[1, 2] * jBLH[1, 2] + ξθθ * jBLH[2, 2] * jBLH[2, 2] * ξϕϕ * jBLH[3, 2] * jBLH[3, 2]
-    tensor[3, 4] = ξrr * jBLH[1, 2] * jBLH[1, 3] + ξθθ * jBLH[2, 2] * jBLH[2, 3] * ξϕϕ * jBLH[3, 2] * jBLH[3, 3]; tensor[4, 3] = tensor[3, 4]
+    tensor[3, 3] = ξrr * jBLH[1, 2] * jBLH[1, 2] + ξθθ * jBLH[2, 2] * jBLH[2, 2] + ξϕϕ * jBLH[3, 2] * jBLH[3, 2]
+    tensor[3, 4] = ξrr * jBLH[1, 2] * jBLH[1, 3] + ξθθ * jBLH[2, 2] * jBLH[2, 3] + ξϕϕ * jBLH[3, 2] * jBLH[3, 3]; tensor[4, 3] = tensor[3, 4]
 
-    tensor[4, 4] = ξrr * jBLH[1, 3] * jBLH[1, 3] + ξθθ * jBLH[2, 3] * jBLH[2, 3] * ξϕϕ * jBLH[3, 3] * jBLH[3, 3]
+    tensor[4, 4] = ξrr * jBLH[1, 3] * jBLH[1, 3] + ξθθ * jBLH[2, 3] * jBLH[2, 3] + ξϕϕ * jBLH[3, 3] * jBLH[3, 3]
 
     return tensor
 end
 
 function Evolve_Harm(Δt::Float64, a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64, aSF_H::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray, CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
+    E0 = last(EE); L0 = last(LL); Q0 = last(QQ); C0 = last(CC); p0 = last(pArray); e0 = last(ecc); θmin_0 = last(θmin);
     temporal_killing = Killing_temporal_H(a, xH, t, r, θ, ϕ, M)
     axial_killing = Killing_axial_H(a, xH, t, r, θ, ϕ, M)
     tensor_killing = Killing_tensor_H(a, xH, t, r, θ, ϕ, M)
 
     #### ELQ ####
-    push!(Edot, -(temporal_killing[1] * aSF_H[1] + temporal_killing[2] * aSF_H[2] + temporal_killing[3] * aSF_H[3] + temporal_killing[4] * aSF_H[4])/Γ)    # Eq. 30
-    push!(Ldot, (axial_killing[1] * aSF_H[1] + axial_killing[2] * aSF_H[2] + axial_killing[3] * aSF_H[3] + axial_killing[4] * aSF_H[4])/Γ)    # Eq. 31
+    dE_dt = -(temporal_killing[1] * aSF_H[1] + temporal_killing[2] * aSF_H[2] + temporal_killing[3] * aSF_H[3] + temporal_killing[4] * aSF_H[4])/Γ    # Eq. 30
+    push!(Edot, dE_dt)
+
+    dL_dt = (axial_killing[1] * aSF_H[1] + axial_killing[2] * aSF_H[2] + axial_killing[3] * aSF_H[3] + axial_killing[4] * aSF_H[4])/Γ    # Eq. 31
+    push!(Ldot, dL_dt)
     
     dQ_dt = 0
     @inbounds for α=1:4, β=1:4
@@ -136,27 +136,49 @@ function Evolve_Harm(Δt::Float64, a::Float64, xH::AbstractArray, t::Float64, r:
     end
     push!(Qdot, dQ_dt)
 
-    push!(Cdot, dQ_dt + 2 * (a * last(EE) - last(LL)) * (last(Ldot) - a * last(Edot)))
+    dC_dt = dQ_dt + 2 * (a * E0 - L0) * (dL_dt - a * dE_dt)
+    push!(Cdot, dC_dt)
 
-    # constants of motion
-    append!(EE, ones(nPoints) * (last(EE) + last(Edot) * Δt))
-    append!(LL, ones(nPoints) * (last(LL) + last(Ldot) * Δt))
-    append!(QQ, ones(nPoints) * (last(QQ) + last(Qdot) * Δt))
-    append!(CC, ones(nPoints) * (last(CC) + last(Cdot) * Δt))
+    # compute updated E, L, Q, C and store
+    E1 = E0 + dE_dt * Δt
+    L1 = L0 + dL_dt * Δt
+    Q1 = Q0 + dQ_dt * Δt
+    C1 = C0 + dC_dt * Δt
 
-    # since we compute the self force at the end of each piecewise geodesic, the flux in between will be zero
-    append!(Edot, zeros(nPoints-1))
-    append!(Ldot, zeros(nPoints-1))
-    append!(Qdot, zeros(nPoints-1))
-    append!(Cdot, zeros(nPoints-1))
+    push!(EE, E1)
+    push!(LL, L1)
+    push!(QQ, Q1)
+    push!(CC, C1)
 
-    #### p, e, θmin ####
 
-    # computing p, e, θmin_BL from updated constants
-    pp, ee, θθ = Kerr.ConstantsOfMotion.peθ_gsl(a, last(EE), last(LL), last(QQ), last(CC), 1.0)
-    append!(pArray, ones(nPoints) * pp)
-    append!(ecc, ones(nPoints) * ee)
-    append!(θmin, ones(nPoints) * θθ)
+    ### update p, e, θmin ####
+
+    # computing p, e, θmin_BL from updated constants. In the circular non-equatorial case we implement the special case to preserve the circularity of the orbit
+    if e0==0.0 && θmin_0!=π/2   # circular non-equatorial
+        dr0_dt = CircularNonEquatorial.r0dot(r0, dE_dt, dL_dt, a, E0, L0, C0, M)
+        pp = p0 + (dr0_dt / M) * Δt
+        ee = 0.0
+
+        ## now calculate θmin
+        # coefficients of polynomial in Eq. E33
+        c0 = C1 / (a^2 * (1.0 - E1^2))
+        c1 = -1.0 - (L1^2 + C1) / (a^2 * (1.0 - E1^2))
+        θθ = acos(sqrt((-c1 - sqrt(c1^2 - 4c0))/2))
+    else
+        pp, ee, θθ = Kerr.ConstantsOfMotion.peθ_gsl(a, E1, L1, Q1, C1, M)
+        # preserve circularity and/or equatorial orbit
+        if e0 == 0.0
+            ee = 0.0
+        end
+
+        if θmin_0 == π/2
+            θθ = π/2
+        end
+    end
+
+    push!(pArray, pp)
+    push!(ecc, ee)
+    push!(θmin, θθ)
 end
 
 end

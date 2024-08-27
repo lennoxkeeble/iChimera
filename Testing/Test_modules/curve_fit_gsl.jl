@@ -37,7 +37,7 @@ end
 
 #=
 
-    The predictor matrix X has a number of rows equal to the number of y-values to which we are fitting. Each row, therefore, consists of the functional form to which we 
+    The predictor matrix X has a Float64 of rows equal to the Float64 of y-values to which we are fitting. Each row, therefore, consists of the functional form to which we 
     are fitting evaluated at each element of the x vector. The input function 'model' must output a vector whose elements are the componenets of the functional form. In other words,
     if the function form we are fitting to is f(x), then we must have f(x) = sum(model(x))
 

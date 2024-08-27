@@ -96,7 +96,7 @@ function GSL_fit!(xdata::Vector{Float64}, ydata::Vector{Float64}, peak_freqs::Ve
         throw(DomainError("There are only $(nFittingFreqs) harmonic frequencies, but $(nFFTFreqs) frequencies were requested from the FFT, which has $(total_num_FFT_freqs) frequencies"))
     end
     # println("There are $(nFittingFreqs) harmonic frequencies and $(nFFTFreqs) frequencies were requested from the FFT, which has $(total_num_FFT_freqs) frequencies")
-    # construct fitting frequencies with the selected number of FFT frequenices, and the remaining given by Ωkmn given from the fundamental frequencies
+    # construct fitting frequencies with the selected Float64 of FFT frequenices, and the remaining given by Ωkmn given from the fundamental frequencies
    
     if nFFTFreqs < nFittingFreqs
         for freq in FFT_freqs
@@ -141,7 +141,7 @@ function GSL_fit!(xdata::Vector{Float64}, ydata::Vector{Float64}, ydata_1::Vecto
     #     throw(DomainError("There are only $(nFittingFreqs) harmonic frequencies, but $(nFFTFreqs) frequencies were requested from the FFT, which has $(total_num_FFT_freqs) frequencies"))
     # end
     # # println("There are $(nFittingFreqs) harmonic frequencies and $(nFFTFreqs) frequencies were requested from the FFT, which has $(total_num_FFT_freqs) frequencies")
-    # # construct fitting frequencies with the selected number of FFT frequenices, and the remaining given by Ωkmn given from the fundamental frequencies
+    # # construct fitting frequencies with the selected Float64 of FFT frequenices, and the remaining given by Ωkmn given from the fundamental frequencies
    
     # if nFFTFreqs < nFittingFreqs
     #     for freq in FFT_freqs

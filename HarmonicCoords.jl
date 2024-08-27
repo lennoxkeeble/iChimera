@@ -14,7 +14,7 @@ rplus(a::Float64, M::Float64) = M + sqrt(M^2 - a^2)
 rminus(a::Float64, M::Float64) = M - sqrt(M^2 - a^2)
 
 # define functions used in coordinate transformations, where r is in BL coordinates
-Ω(r:: Float64, a::Float64, M::Float64) = tan(a * log((r - rminus(a, M)) / (r - rplus(a, M))) / (2.0 * sqrt(M^2 - a^2)))   # Eq. 76
+Ω(r::Float64, a::Float64, M::Float64) = tan(a * log((r - rminus(a, M)) / (r - rplus(a, M))) / (2.0 * sqrt(M^2 - a^2)))   # Eq. 76
 Φ(r::Float64, a::Float64, M::Float64) = π/2 - atan(((r - M) / a + Ω(r, a, M)), (1.0 - (r - M) * Ω(r, a, M) / a))    # Eq. 75
 ∂Φ_∂r(r::Float64, a::Float64, M::Float64) = a * M^2 / ((a^2 + (M - r)^2) * (a^2 + r * (r - 2M)))
 ∂2Φ_∂rr(r::Float64, a::Float64, M::Float64) = 2.0a * (M - r) * (-1.0 / ((a^2 + (M - r)^2)^2) + 1.0 / ((a^2 + r * (r - 2M))^2))
@@ -139,13 +139,36 @@ HessHBL(xH::Vector{Float64}, rH::Float64, a::Float64, M::Float64, i::Int) = i==1
 g_tt_H(xH::Vector{Float64}, a::Float64, M::Float64, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function) = g_tt(0., xHtoBL(xH, a, M)..., a, M)
 g_tr_H(xH::Vector{Float64}, a::Float64, M::Float64, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function) = g_tϕ(0., xHtoBL(xH, a, M)..., a, M) * ∂ϕ_∂rH(xH, a, M)
 g_rr_H(xH::Vector{Float64}, a::Float64, M::Float64, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function) = g_rr(0., xHtoBL(xH, a, M)..., a, M) * (∂ᵢr∂ⱼr(xH, a, M)) + g_θθ(0., xHtoBL(xH, a, M)..., a, M) * (∂ᵢθ∂ⱼθ(xH, a, M)) + g_ϕϕ(0., xHtoBL(xH, a, M)..., a, M) * (∂ᵢϕ∂ⱼϕ(xH, a, M))   # Eq. B18
-g_μν_H(xH::Vector{Float64}, a::Float64, M::Float64, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function) = hcat([g_tt_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ), g_tr_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ)...], vcat(transpose(g_tr_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ)), g_rr_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ)))
+# g_μν_H(xH::Vector{Float64}, a::Float64, M::Float64, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function) = hcat([g_tt_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ), g_tr_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ)...], vcat(transpose(g_tr_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ)), g_rr_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ)))
+
+@views function g_μν_H(xH::Vector{Float64}, a::Float64, M::Float64, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function)
+    gg = zeros(4, 4)
+    xBL = HarmonicCoords.xHtoBL(xH, a, M)
+    gg[1, 1] = g_tt(0., xBL[1], xBL[2], xBL[3], a, M)
+    gg[1, 2] = g_tϕ(0., xBL[1], xBL[2], xBL[3], a, M) * ∂ϕ_∂xH(xH, a, M); gg[2, 1] = gg[1, 2];
+    gg[1, 3] = g_tϕ(0., xBL[1], xBL[2], xBL[3], a, M) * ∂ϕ_∂yH(xH, a, M); gg[3, 1] = gg[1, 3];
+    gg[1, 4] = g_tϕ(0., xBL[1], xBL[2], xBL[3], a, M) * ∂ϕ_∂zH(xH, a, M); gg[4, 1] = gg[1, 4];
+    gg[2:4, 2:4] = g_rr_H(xH, a, M, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ)
+    return gg
+end
 
 # contravariant (note that we need to therefore input the contravariant metric component)
 gTT_H(xH::Vector{Float64}, a::Float64, M::Float64, g_TT::Function, g_TΦ::Function, g_RR::Function, g_ThTh::Function, g_ΦΦ::Function) = g_TT(0., xHtoBL(xH, a, M)..., a, M)
 gTR_H(xH::Vector{Float64}, a::Float64, M::Float64, g_TT::Function, g_TΦ::Function, g_RR::Function, g_ThTh::Function, g_ΦΦ::Function) = g_TΦ(0., xHtoBL(xH, a, M)..., a, M) * ∂rH_∂ϕ(xH, a, M)
 gRR_H(xH::Vector{Float64}, a::Float64, M::Float64, g_TT::Function, g_TΦ::Function, g_RR::Function, g_ThTh::Function, g_ΦΦ::Function) = g_RR(0., xHtoBL(xH, a, M)..., a, M) * (∂ij_∂r(xH, a, M)) + g_ThTh(0., xHtoBL(xH, a, M)..., a, M) * (∂ij_∂θ(xH, a, M)) + g_ΦΦ(0., xHtoBL(xH, a, M)..., a, M) * (∂ij_∂ϕ(xH, a, M))    # Eq. B18
-gμν_H(xH::Vector{Float64}, a::Float64, M::Float64, g_TT::Function, g_TΦ::Function, g_RR::Function, g_ThTh::Function, g_ΦΦ::Function) = hcat([gTT_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ), gTR_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ)...], vcat(transpose(gTR_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ)), gRR_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ)))
+# gμν_H(xH::Vector{Float64}, a::Float64, M::Float64, g_TT::Function, g_TΦ::Function, g_RR::Function, g_ThTh::Function, g_ΦΦ::Function) = hcat([gTT_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ), gTR_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ)...], vcat(transpose(gTR_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ)), gRR_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ)))
+
+@views function gμν_H(xH::Vector{Float64}, a::Float64, M::Float64, g_TT::Function, g_TΦ::Function, g_RR::Function, g_ThTh::Function, g_ΦΦ::Function)
+    gg = zeros(4, 4)
+    xBL = HarmonicCoords.xHtoBL(xH, a, M)
+    gg[1, 1] = g_TT(0., xBL[1], xBL[2], xBL[3], a, M)
+    gg[1, 2] = g_TΦ(0., xBL[1], xBL[2], xBL[3], a, M) * ∂xH_∂ϕ(xH, a, M); gg[2, 1] = gg[1, 2];
+    gg[1, 3] = g_TΦ(0., xBL[1], xBL[2], xBL[3], a, M) * ∂yH_∂ϕ(xH, a, M); gg[3, 1] = gg[1, 3];
+    gg[1, 4] = g_TΦ(0., xBL[1], xBL[2], xBL[3], a, M) * ∂zH_∂ϕ(xH, a, M); gg[4, 1] = gg[1, 4];
+    gg[2:4, 2:4] = gRR_H(xH, a, M, g_TT, g_TΦ, g_RR, g_ThTh, g_ΦΦ)
+    return gg
+end
+
 
 # transfrom velocities and accelerations to harmonic coordinates
 vBLtoH(xH::Vector{Float64}, vBL::Vector{Float64}, a::Float64, M::Float64) = ∂rH_∂r(xH, a, M) * vBL[1] .+ ∂rH_∂θ(xH, a, M) * vBL[2] .+ ∂rH_∂ϕ(xH, a, M) * vBL[3]   # Eq. 78

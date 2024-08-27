@@ -31,6 +31,9 @@ dependencies = [
     "GLM",
     "DataFrames",
     "FFTW",
-    "Interpolations"
+    "Interpolations",
+    "IntervalRootFinding",
+    "IntervalArithmetic",
+    "Peaks"
 ]
 Pkg.add(dependencies)

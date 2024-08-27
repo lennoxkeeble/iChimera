@@ -8,7 +8,7 @@
 module FourierFitGSL
 using GSL
 
-# compute number of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
+# compute Float64 of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
 compute_num_fitting_freqs_1(nHarm::Int64) = nHarm
 compute_num_fitting_freqs_2(nHarm::Int64) = Int((nHarm * (5 + 3 * nHarm) / 2))
 compute_num_fitting_freqs_3(nHarm::Int64) = Int( nHarm * (13 + 2 * nHarm * (9 + 4 * nHarm)) / 3)
@@ -136,7 +136,7 @@ end
 
 #=
 
-    The predictor matrix X has a number of rows equal to the number of y-values to which we are fitting. Each row, therefore, consists of the functional form to which we 
+    The predictor matrix X has a Float64 of rows equal to the Float64 of y-values to which we are fitting. Each row, therefore, consists of the functional form to which we 
     are fitting evaluated at each element of the x vector. The input function 'model' must output a vector whose elements are the componenets of the functional form. In other words,
     if the function form we are fitting to is f(x), then we must have f(x) = sum(model(x))
 
@@ -152,7 +152,7 @@ function GSL_fourier_model(t::Float64, Ω::Vector{Float64}, n_freqs::Int64,  n_c
     return f
 end
 
-# fill predictor matrix X: N is number of harmonics, and Ω_fit is the fitting frequencies
+# fill predictor matrix X: N is Float64 of harmonics, and Ω_fit is the fitting frequencies
 function fill_predictor_matrix!(X::Ptr{gsl_matrix}, x::Vector{Float64}, n_p::Int64, n_freqs::Int64,  n_coeffs::Int64, Ω_fit::Vector{Float64})
     # construct the fit matrix X 
     @inbounds Threads.@threads for i=0:n_p-1
@@ -171,7 +171,7 @@ end
 
 # master functions for carrying out fit with one, two or three fundamental frequencies
 function GSL_fit_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, nHarm::Int64, chisq::Vector{Float64},  Ω1::Float64, fit_params::Vector{Float64})
-    # compute fitting frequncies and their number
+    # compute fitting frequncies and their Float64
     Ω_fit = FourierFitGSL.compute_fitting_frequenices_1(nHarm, Ω1)
     n_freqs = compute_num_fitting_freqs_1(nHarm)
     n_coeffs = 2 * n_freqs + 1    # +1 to allocate memory for the constant term, and factor of 2 since we have sin and cos for each frequency
@@ -192,7 +192,7 @@ function GSL_fit_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, 
 end
 
 function GSL_fit_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, nHarm::Int64, chisq::Vector{Float64},  Ω1::Float64, Ω2::Float64, fit_params::Vector{Float64})
-    # compute fitting frequncies and their number
+    # compute fitting frequncies and their Float64
     Ω_fit = FourierFitGSL.compute_fitting_frequenices_2(nHarm, Ω1, Ω2)
     n_freqs = compute_num_fitting_freqs_2(nHarm)
     n_coeffs = 2 * n_freqs + 1    # +1 to allocate memory for the constant term, and factor of 2 since we have sin and cos for each frequency
@@ -213,7 +213,7 @@ function GSL_fit_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, 
 end
 
 function GSL_fit_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, nHarm::Int64, chisq::Vector{Float64},  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::Vector{Float64})
-    # compute fitting frequncies and their number
+    # compute fitting frequncies and their Float64
     Ω_fit = FourierFitGSL.compute_fitting_frequenices_3(nHarm, Ω1, Ω2, Ω3)
     n_freqs = compute_num_fitting_freqs_3(nHarm)
     n_coeffs = 2 * n_freqs + 1    # +1 to allocate memory for the constant term, and factor of 2 since we have sin and cos for each frequency

@@ -1,7 +1,7 @@
 include("/home/lkeeble/GRSuite/Testing/Test_modules/curve_fit_gsl.jl");
 using GSL, Distributions, Plots, .CurveFitGSL
-n_p = 200  # number of data points to fit 
-n_coeffs = 4 # number of fit coefficients 
+n_p = 200  # Float64 of data points to fit 
+n_coeffs = 4 # Float64 of fit coefficients 
 
 # construct xdata
 x_min=-5.0; x_max=5.0; Δx = (x_max-x_min)/(n_p-1);

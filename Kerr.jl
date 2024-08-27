@@ -302,7 +302,7 @@ function peθ(a::Float64, E::Float64, L::Float64, Q::Float64, C::Float64, M::Flo
     # return a3
 
     r = zeros(4)
-    @inbounds Threads.@threads for i=1:4
+    @inbounds for i=1:4
         # r[i] = -a3/4.0 + (1.0/2.0) * (s[i][1] * sqrt(δ + 2.0y1) + s[i][2] * sqrt(-(3.0δ + 2.0y1 + s[i][1] * 2.0τ / sqrt(δ + 2.0y1))))
         r[i] = -a3/4.0 + (1.0/2.0) * (s[i][1] * sqrt(δ + 2.0y1) + s[i][2] * sqrt(-(3.0δ + 2.0y1 + s[i][1] * 2.0τ / sqrt(δ + 2.0y1))))
     end

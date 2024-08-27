@@ -2,8 +2,8 @@ module FiniteDiff_4
 
 # given an array length and an index, this function returns the node of the index
 function compute_node(index::Int64, array_len::Int64, node_max::Int64)
-    num_left = index-1     # number of array entries to the left
-    num_right = array_len-index    # number of array entries to the right
+    num_left = index-1     # Float64 of array entries to the left
+    num_right = array_len-index    # Float64 of array entries to the right
     min_distance=minimum([num_left, num_right])    # minimum "distance" to one either end of the array
 
     # if maxiumum node is even
@@ -160,8 +160,8 @@ module FiniteDiff_5
 
 # given an array length and an index, this function returns the node of the index
 function compute_node(index::Int64, array_len::Int64, node_max::Int64)
-    num_left = index-1     # number of array entries to the left
-    num_right = array_len-index    # number of array entries to the right
+    num_left = index-1     # Float64 of array entries to the left
+    num_right = array_len-index    # Float64 of array entries to the right
     min_distance=minimum([num_left, num_right])    # minimum "distance" to one either end of the array
 
     # if maxiumum node is even

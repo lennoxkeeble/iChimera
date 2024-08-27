@@ -7,7 +7,7 @@ include("/home/lkeeble/GRSuite/Testing/Mino_time_coordinate_derivs/MinoTime_dλ.
 include("/home/lkeeble/GRSuite/Testing/Mino_time_coordinate_derivs/MinoTime_d2λ.jl");
 
 module TestFitsDerivsBLTime
-using DelimitedFiles, Peaks, ..HJEvolution, ..FourierFitGSL_Derivs, JLD2, FileIO
+using DelimitedFiles, Peaks, ..BLTimeEvolution, ..FourierFitGSL_Derivs, JLD2, FileIO
 using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6, ..FourierFunctions, ..Kerr
 using BenchmarkTools
 
@@ -40,7 +40,7 @@ function compute_fit(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt::Fun
     tmax =  t_range_factor * minimum(@. 2π/Ω[Ω .< 1e9]); saveat = tmax / (nPoints-1); Δti=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(kerrReltol).txt"
@@ -150,7 +150,7 @@ function compute_fit_FFT(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt:
     tmax =  t_range_factor * minimum(@. 2π/Ω[Ω .< 1e9]); saveat = tmax / (nPoints-1); Δti=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPoints, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(kerrReltol).txt"
@@ -269,7 +269,7 @@ function extract_fourier_transform(f::Function, a::Float64, p::Float64, e::Float
     t_max_FFT = t_range_factor_FFT * minimum(@. 2π/Ω[Ω .< 1e9]); saveat_FFT = t_max_FFT / (nPointsFFT-1); Δti=saveat_FFT;
 
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, t_max_FFT, Δti, kerrReltol, kerrAbstol, saveat_FFT, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, t_max_FFT, Δti, kerrReltol, kerrAbstol, saveat_FFT, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat_FFT)_T_$(t_max_FFT)_tol_$(kerrReltol).txt"
@@ -293,7 +293,7 @@ end
 # function to extract fourier frequencies from geodesic data
 function extract_fourier_transform(f::Function, a::Float64, p::Float64, e::Float64, θi::Float64, tmax::Float64, Δti::Float64, saveat::Float64, nPointsFFT::Int64, kerrReltol::Float64, kerrAbstol::Float64, data_path::String)
     ##### compute geodesic for reltol=1e-12 #####
-    HJEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    BLTimeEvolution.compute_kerr_geodesic(a, p, e, θi, nPointsFFT, tmax, Δti, kerrReltol, kerrAbstol, saveat, data_path=data_path)
 
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "HJ_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(kerrReltol).txt"
@@ -318,7 +318,7 @@ end
 
 
 module TestFitsMinoTime
-using DelimitedFiles, Peaks, ..MinoEvolution, ..FourierFitGSL_Derivs, JLD2, FileIO, ..MinoTimeDerivs, ..ParameterizedDerivs
+using DelimitedFiles, Peaks, ..MinoTimeEvolution, ..FourierFitGSL_Derivs, JLD2, FileIO, ..MinoTimeDerivs, ..ParameterizedDerivs
 using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6, ..FourierFunctions, ..Kerr, ..TestFitsBLTime, ..MinoDeriv1, ..MinoDeriv2
 
 ##### define function to carry out fit and store fit parameters #####
@@ -338,7 +338,7 @@ function compute_fit(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt::Fun
     λmax =  t_range_factor * minimum(@. 2π/ω[ω .< 1e9]); saveat = λmax / (nPoints-1); Δλi=saveat;
 
     ##### compute geodesic for reltol=1e-12 #####
-    @time MinoEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
+    @time MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θi, λmax, Δλi, kerrReltol, kerrAbstol, saveat, data_path=data_path)
     
     # load geodesic and store in array #
     kerr_ode_sol_fname=data_path * "Mino_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(λmax)_tol_$(kerrReltol).txt"
@@ -386,12 +386,12 @@ function compute_fit(f::Function, df_dt::Function, d2f_dt::Function, d3f_dt::Fun
         d2x[i] = Vector{Float64}([d2r_dt[i], d2θ_dt[i], d2ϕ_dt[i]]);
 
         # compute time derivatives (wrt λ)
-        dt_dλ = MinoEvolution.dt_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
-        dψ_dλ = MinoEvolution.dψ_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
-        dχ_dλ = MinoEvolution.dχ_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
-        dϕ_dλ = MinoEvolution.dϕ_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
-        dr_dλ = MinoEvolution.dr_dλ(dψ_dλ, psi[i], p, e, M);
-        dθ_dλ = MinoEvolution.dθ_dλ(dχ_dλ, chi[i], x[i][2], θi);
+        dt_dλ = MinoTimeEvolution.dt_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
+        dψ_dλ = MinoTimeEvolution.dψ_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
+        dχ_dλ = MinoTimeEvolution.dχ_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
+        dϕ_dλ = MinoTimeEvolution.dϕ_dλ(λ[i], psi[i], chi[i], x[i][3], a, M, E, L, p, e, θi, p3, p4, zp, zm);
+        dr_dλ = MinoTimeEvolution.dr_dλ(dψ_dλ, psi[i], p, e, M);
+        dθ_dλ = MinoTimeEvolution.dθ_dλ(dχ_dλ, chi[i], x[i][2], θi);
         dx_dλ[i] = Vector{Float64}([dr_dλ, dθ_dλ, dϕ_dλ]);
         d2x_dλ[i] = Vector{Float64}([abs(dr_dλ) < 1e-12 ? 0.0 : MinoDeriv2.d2r_dλ(dx_dλ[i], x[i], a, M, E, L, C), abs(dθ_dλ) < 1e-12 ? 0.0 : MinoDeriv2.d2θ_dλ(dx_dλ[i], x[i], a, M, E, L, C), MinoDeriv2.d2ϕ_dλ(dx_dλ[i], x[i], a, M, E, L, C)]);
     end

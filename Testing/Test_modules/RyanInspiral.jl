@@ -3,10 +3,9 @@ using StaticArrays
 using DelimitedFiles
 using DifferentialEquations
 using ..Kerr
-using ..HJEvolution
+using ..BLTimeEvolution
 using ..FourierFitGSL
-
-using ..SelfForce
+using ..SelfAcceleration
 using ..RyanFluxes
 using ..Kerr
 using StaticArrays
@@ -77,13 +76,13 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
     rplus = Kerr.KerrMetric.rplus(a, M); rminus = Kerr.KerrMetric.rminus(a, M);
     # initial condition for Kerr geodesic trajectory
     t0 = 0.0
-    ics = HJEvolution.HJ_ics(ra, p, e, M);
+    ics = BLTimeEvolution.HJ_ics(ra, p, e, M);
 
     rLSO = LSO_p(a, M)
     while tOrbit > t0
         # orbital parameters during current piecewise geodesic
         E_t = last(EE); L_t = last(LL); C_t = last(CC); Q_t = last(QQ); p_t = last(pArray); θmin_t = last(θmin); e_t = last(ecc);
-        print("Completion: $(100 * t0/tOrbit)%   \r")
+        print("Completion: $(round(100 * t0/tOrbit; digits=5))%   \r")
         flush(stdout)   
 
         # compute roots of radial function R(r)
@@ -116,11 +115,11 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
             T_Fit = t_range_factor * minimum(@. 2π/Ω)
         end
 
-        saveat = T_Fit / (nPoints-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
+        saveat = T_Fit / (nPoints-1);    # the user specifies the Float64 of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
 
         # to compute the self force at a point, we must overshoot the solution into the future
         tF = t0 + (nPoints-1) * saveat + (nPoints÷2) * saveat   # evolve geodesic up to tF
-        total_num_points = nPoints+(nPoints÷2)   # total number of points in geodesic since we overshoot
+        total_num_points = nPoints+(nPoints÷2)   # total Float64 of points in geodesic since we overshoot
         Δti=saveat;    # initial time step for geodesic integration
 
         saveat_t = range(t0, tF, total_num_points) |> collect
@@ -133,7 +132,7 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         cb = ContinuousCallback(condition, affect!)
 
         # numerically solve for geodesic motion
-        prob = e == 0.0 ? ODEProblem(HJEvolution.HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJEvolution.HJ_Eqns, ics, tspan, params);
+        prob = e == 0.0 ? ODEProblem(BLTimeEvolution.HJ_Eqns_circular, ics, tspan, params) : ODEProblem(BLTimeEvolution.HJ_Eqns, ics, tspan, params);
         
         # if e==0.0
         #     sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t, callback = cb);
@@ -166,23 +165,23 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         end
 
         # compute time derivatives
-        psi_dot = HJEvolution.psi_dot.(psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
-        chi_dot = HJEvolution.chi_dot.(psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
-        ϕ_dot = HJEvolution.phi_dot.(psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
+        psi_dot = BLTimeEvolution.psi_dot.(psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
+        chi_dot = BLTimeEvolution.chi_dot.(psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
+        ϕ_dot = BLTimeEvolution.phi_dot.(psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
 
         # compute BL coordinates t, r, θ and their time derivatives
-        rr = HJEvolution.r.(psi, p_t, e_t, M)
-        θθ = [acos((π/2<chi[i]<1.5π) ? -sqrt(HJEvolution.z(chi[i], θmin_t)) : sqrt(HJEvolution.z(chi[i], θmin_t))) for i in eachindex(chi)]
+        rr = BLTimeEvolution.r.(psi, p_t, e_t, M)
+        θθ = [acos((π/2<chi[i]<1.5π) ? -sqrt(BLTimeEvolution.z(chi[i], θmin_t)) : sqrt(BLTimeEvolution.z(chi[i], θmin_t))) for i in eachindex(chi)]
 
-        r_dot = HJEvolution.dr_dt.(psi_dot, psi, p_t, e_t, M);
-        θ_dot = HJEvolution.dθ_dt.(chi_dot, chi, θθ, θmin_t);
+        r_dot = BLTimeEvolution.dr_dt.(psi_dot, psi, p_t, e_t, M);
+        θ_dot = BLTimeEvolution.dθ_dt.(chi_dot, chi, θθ, θmin_t);
         v_spatial = [[r_dot[i], θ_dot[i], ϕ_dot[i]] for i in eachindex(tt)];
-        Γ = @. HJEvolution.Γ(tt, rr, θθ, ϕϕ, v_spatial, a, M)
+        Γ = @. BLTimeEvolution.Γ(tt, rr, θθ, ϕϕ, v_spatial, a, M)
 
         # substitute solution back into geodesic equation to find second derivatives of BL coordinates (wrt t)
-        r_ddot = HJEvolution.dr2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
-        θ_ddot = HJEvolution.dθ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
-        ϕ_ddot = HJEvolution.dϕ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
+        r_ddot = BLTimeEvolution.dr2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
+        θ_ddot = BLTimeEvolution.dθ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
+        ϕ_ddot = BLTimeEvolution.dϕ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
 
         ###### MIGHT WANT TO USE VIEWS TO OPTIMIZE A BIT AND AVOID MAKING COPIES IN EACH CALL BELOW ######
 
@@ -203,7 +202,7 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         end
 
         chisq=[0.0];
-        SelfForce.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt[fit_index_0:fit_index_1], 
+        SelfAcceleration.FourierFit.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, tt[fit_index_0:fit_index_1], 
             rr[fit_index_0:fit_index_1], r_dot[fit_index_0:fit_index_1], r_ddot[fit_index_0:fit_index_1], θθ[fit_index_0:fit_index_1], 
             θ_dot[fit_index_0:fit_index_1], θ_ddot[fit_index_0:fit_index_1], ϕϕ[fit_index_0:fit_index_1], ϕ_dot[fit_index_0:fit_index_1], 
             ϕ_ddot[fit_index_0:fit_index_1], Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, 

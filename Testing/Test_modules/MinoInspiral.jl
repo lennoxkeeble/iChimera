@@ -12,12 +12,14 @@ using StaticArrays
 using DelimitedFiles
 using DifferentialEquations
 using ..Kerr
-using ..MinoEvolution
+using ..MinoTimeEvolution
 using ..FourierFitGSL
 using ..CircularNonEquatorial
 import ..HarmonicCoords: g_tt_H, g_tr_H, g_rr_H, g_μν_H, gTT_H, gTR_H, gRR_H, gμν_H
 using ..HarmonicCoords
-using ..SelfForce
+using ..EstimateMultipoleDerivs
+using ..SelfAcceleration
+using ..EvolveConstants
 using ..ConstructSymmetricArrays
 using JLD2
 using FileIO
@@ -119,13 +121,13 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
     # initial condition for Kerr geodesic trajectory
     t0 = 0.0
     λ0 = 0.0
-    ics = MinoEvolution.Mino_ics(t0, ra, p, e, M);
+    ics = MinoTimeEvolution.Mino_ics(t0, ra, p, e, M);
 
     rLSO = LSO_p(a, M)
     while tOrbit > t0
         # orbital parameters during current piecewise geodesic
         E_t = last(EE); L_t = last(LL); C_t = last(CC); Q_t = last(QQ); p_t = last(pArray); θmin_t = last(θmin); e_t = last(ecc);
-        print("Completion: $(100 * t0/tOrbit)%   \r")
+        print("Completion: $(round(100 * t0/tOrbit; digits=5))%   \r")
         flush(stdout)   
 
         # compute roots of radial function R(r)
@@ -157,11 +159,11 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
             T_Fit = t_range_factor * minimum(@. 2π/ω[1:3])
         end
 
-        saveat = T_Fit / (nPoints-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
+        saveat = T_Fit / (nPoints-1);    # the user specifies the Float64 of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
 
         # to compute the self force at a point, we must overshoot the solution into the future
         λF = λ0 + (nPoints-1) * saveat + (nPoints÷2) * saveat   # evolve geodesic up to λF
-        total_num_points = nPoints+(nPoints÷2)   # total number of points in geodesic since we overshoot
+        total_num_points = nPoints+(nPoints÷2)   # total Float64 of points in geodesic since we overshoot
         Δλi=saveat/10;    # initial time step for geodesic integration
 
         saveat_λ = range(λ0, λF, total_num_points) |> collect
@@ -173,7 +175,7 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         cb = ContinuousCallback(condition, affect!)
 
         # numerically solve for geodesic motion
-        prob = e == 0.0 ? ODEProblem(MinoEvolution.HJ_Eqns_circular, ics, λspan, params) : ODEProblem(MinoEvolution.HJ_Eqns, ics, λspan, params);
+        prob = e == 0.0 ? ODEProblem(MinoTimeEvolution.HJ_Eqns_circular, ics, λspan, params) : ODEProblem(MinoTimeEvolution.HJ_Eqns, ics, λspan, params);
         
         # if e==0.0
         #     sol = solve(prob, AutoTsit5(Rodas4P()), adaptive=true, dt=Δλi, reltol = reltol, abstol = abstol, saveat=saveat_λ, callback = cb);
@@ -208,17 +210,17 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         end
         
         # compute time derivatives (wrt λ)
-        dt_dλ = MinoEvolution.dt_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
-        dψ_dλ = MinoEvolution.dψ_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
-        dχ_dλ = MinoEvolution.dχ_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
-        dϕ_dλ = MinoEvolution.dϕ_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
+        dt_dλ = MinoTimeEvolution.dt_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
+        dψ_dλ = MinoTimeEvolution.dψ_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
+        dχ_dλ = MinoTimeEvolution.dχ_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
+        dϕ_dλ = MinoTimeEvolution.dϕ_dλ.(λλ, psi, chi, ϕϕ, a, M, E_t, L_t, p_t, e_t, θmin_t, p3, p4, zp, zm)
 
         # compute BL coordinates t, r, θ and their time derivatives
-        rr = MinoEvolution.r.(psi, p_t, e_t, M)
-        θθ = [acos((π/2<chi[i]<1.5π) ? -sqrt(MinoEvolution.z(chi[i], θmin_t)) : sqrt(MinoEvolution.z(chi[i], θmin_t))) for i in eachindex(chi)]
+        rr = MinoTimeEvolution.r.(psi, p_t, e_t, M)
+        θθ = [acos((π/2<chi[i]<1.5π) ? -sqrt(MinoTimeEvolution.z(chi[i], θmin_t)) : sqrt(MinoTimeEvolution.z(chi[i], θmin_t))) for i in eachindex(chi)]
 
-        dr_dλ = MinoEvolution.dr_dλ.(dψ_dλ, psi, p_t, e_t, M);
-        dθ_dλ = MinoEvolution.dθ_dλ.(dχ_dλ, chi, θθ, θmin_t);
+        dr_dλ = MinoTimeEvolution.dr_dλ.(dψ_dλ, psi, p_t, e_t, M);
+        dθ_dλ = MinoTimeEvolution.dθ_dλ.(dχ_dλ, chi, θθ, θmin_t);
     
         # compute derivatives wrt t
         r_dot = @. dr_dλ / dt_dλ
@@ -227,12 +229,12 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
 
         # compute Γ factor
         v_spatial = [[r_dot[i], θ_dot[i], ϕ_dot[i]] for i in eachindex(λλ)]; # v_spatial=dxi/dt
-        Γ = @. MinoEvolution.Γ(tt, rr, θθ, ϕϕ, v_spatial, a, M)
+        Γ = @. MinoTimeEvolution.Γ(tt, rr, θθ, ϕϕ, v_spatial, a, M)
 
         # substitute solution back into geodesic equation to find second derivatives of BL coordinates (wrt t)
-        r_ddot = MinoEvolution.dr2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
-        θ_ddot = MinoEvolution.dθ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
-        ϕ_ddot = MinoEvolution.dϕ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
+        r_ddot = MinoTimeEvolution.dr2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
+        θ_ddot = MinoTimeEvolution.dθ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
+        ϕ_ddot = MinoTimeEvolution.dϕ2_dt2.(tt, rr, θθ, ϕϕ, r_dot, θ_dot, ϕ_dot, a, M)
 
         ###### COMPUTE MULTIPOLE MOMENTS FOR WAVEFORMS ######
         # store multipole moments for waveform computation
@@ -246,7 +248,7 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         
         # # MIGHT WANT TO USE VIEWS TO OPTIMIZE A BIT AND AVOID MAKING COPIES IN EACH CALL BELOW #
         chisq=[0.0];
-        SelfForce.compute_waveform_moments_and_derivs_Mino!(a, E_t, L_t, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, λλ[1:nPoints], rr[1:nPoints], r_dot[1:nPoints], r_ddot[1:nPoints], θθ[1:nPoints], θ_dot[1:nPoints], 
+        EstimateMultipoleDerivs.FourierFit.compute_waveform_moments_and_derivs_Mino!(a, E_t, L_t, C_t, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, λλ[1:nPoints], rr[1:nPoints], r_dot[1:nPoints], r_ddot[1:nPoints], θθ[1:nPoints], θ_dot[1:nPoints], 
             θ_ddot[1:nPoints], ϕϕ[1:nPoints], ϕ_dot[1:nPoints], ϕ_ddot[1:nPoints], Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp, Sij2_wf_temp, Sijk3_wf_temp,
             nHarm, ωr, ωθ, ωϕ, nPoints, n_freqs, chisq)
 
@@ -283,13 +285,13 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         end
 
         chisq=[0.0];
-        SelfForce.selfAcc_Mino!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, λλ[fit_index_0:fit_index_1], 
+        SelfAcceleration.FourierFit.selfAcc_Mino!(aSF_H_temp, aSF_BL_temp, xBL, vBL, aBL, xH, x_H, rH, vH, v_H, aH, a_H, v, λλ[fit_index_0:fit_index_1], 
             rr[fit_index_0:fit_index_1], r_dot[fit_index_0:fit_index_1], r_ddot[fit_index_0:fit_index_1], θθ[fit_index_0:fit_index_1], 
             θ_dot[fit_index_0:fit_index_1], θ_ddot[fit_index_0:fit_index_1], ϕϕ[fit_index_0:fit_index_1], ϕ_dot[fit_index_0:fit_index_1], 
             ϕ_ddot[fit_index_0:fit_index_1], Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data, 
             Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, E_t, L_t, M, m, compute_at, nHarm, ωr, ωθ, ωϕ, fit_array_length, n_freqs, chisq);
         
-        SelfForce.EvolveConstants(tt[nPoints]-tt[1], a, tt[nPoints], rr[nPoints], θθ[nPoints], ϕϕ[nPoints], Γ[nPoints], r_dot[nPoints], θ_dot[nPoints], ϕ_dot[nPoints], aSF_BL_temp, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin, M, nPoints)
+        EvolveConstants(tt[nPoints]-tt[1], a, tt[nPoints], rr[nPoints], θθ[nPoints], ϕϕ[nPoints], Γ[nPoints], r_dot[nPoints], θ_dot[nPoints], ϕ_dot[nPoints], aSF_BL_temp, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin, M, nPoints)
 
         # store self force values
         push!(aSF_H, aSF_H_temp)
