@@ -186,7 +186,7 @@ function moment_derivs_tr_Mino!(h::Float64, compute_at::Int64, nPoints::Int64, a
     ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk7); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk8);
 end
 
-@views function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, x::AbstractArray, dr::AbstractArray, dθ::AbstractArray, 
+function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, x::AbstractArray, dr::AbstractArray, dθ::AbstractArray, 
     Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray,
     Sij2::AbstractArray, Sijk3::AbstractArray, nPoints::Int64, h::Float64)
     
@@ -243,7 +243,7 @@ end
 end
 
 
-@views function compute_waveform_moments_and_derivs_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, 
+function compute_waveform_moments_and_derivs_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, 
     xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, 
     t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64},
     ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, 
@@ -278,13 +278,13 @@ module FourierFit
 using ..EstimateMultipoleDerivs
 using ...MinoTimeDerivs, ...MinoDerivs1, ...MinoDerivs2, ...MinoDerivs3, ...MinoDerivs4, ...MinoDerivs5, ...MinoDerivs6
 using ...HarmonicCoords
-using ...FourierFitGSL
+using ...FourierFitGSL, ...FourierFitJuliaBase
 using ...ParameterizedDerivs
 using ...ConstructSymmetricArrays
 
 function moment_derivs_tr_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, λ::AbstractArray, x::AbstractArray, sign_dr::Float64, sign_dθ::Float64, Mij2data::AbstractArray, Mijk2data::AbstractArray,
     Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray,
-    compute_at::Int64, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    compute_at::Int64, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     
     γ = [γr, γθ, γϕ];
 
@@ -317,31 +317,55 @@ function moment_derivs_tr_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
             for multipole in EstimateMultipoleDerivs.two_index_multipoles_tr
                 fit_params = zeros(2 * n_freqs + 1);
                 if isequal(multipole, "mass_quad_2nd")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mij2data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)
-                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
-                    d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
-                    d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-                    d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                    d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                    d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
-
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mij2data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)
+                        df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
+                        d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
+                        d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+                        d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                        d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                        d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(λ, Mij2data[i1, i2], nPoints, nHarm, γ, fit_params)
+                        df_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 1)[compute_at]
+                        d2f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 2)[compute_at]
+                        d3f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 3)[compute_at]
+                        d4f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 4)[compute_at]
+                        d5f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 5)[compute_at]
+                        d6f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 6)[compute_at]                       
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end
+                    
                     d3f_dt = ParameterizedDerivs.d3f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt)
                     d4f_dt = ParameterizedDerivs.d4f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt)
                     d5f_dt = ParameterizedDerivs.d5f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt)
                     d6f_dt = ParameterizedDerivs.d6f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt, d6f_dλ, d6λ_dt)
-
                     @views Mij5[i1, i2] = d3f_dt
                     @views Mij6[i1, i2] = d4f_dt
                     @views Mij7[i1, i2] = d5f_dt
                     @views Mij8[i1, i2] = d6f_dt
                 elseif isequal(multipole, "current_quad_1st")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sij1data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)           
-                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
-                    d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
-                    d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-                    d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                    d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                    d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sij1data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)
+                        df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
+                        d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
+                        d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+                        d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                        d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                        d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(λ, Sij1data[i1, i2], nPoints, nHarm, γ, fit_params)
+                        df_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 1)[compute_at]
+                        d2f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 2)[compute_at]
+                        d3f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 3)[compute_at]
+                        d4f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 4)[compute_at]
+                        d5f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 5)[compute_at]
+                        d6f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 6)[compute_at]
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end       
+                    
 
                     d4f_dt = ParameterizedDerivs.d4f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt)
                     d5f_dt = ParameterizedDerivs.d5f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt)
@@ -353,13 +377,25 @@ function moment_derivs_tr_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
         else
             i1, i2, i3 = indices
             fit_params = zeros(2 * n_freqs + 1);
-            Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params)
-            df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
-            d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
-            d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-            d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-            d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-            d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+            if fit=="GSL"
+                Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params)
+                df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
+                d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)[compute_at]
+                d3f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+                d4f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                d5f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                d6f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+            elseif fit=="Julia"
+                Ω_fit = FourierFitJuliaBase.Fit_master!(λ,  Mijk2data[i1, i2, i3], nPoints, nHarm, γ, fit_params)
+                df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)[compute_at]
+                d2f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 2)[compute_at]
+                d3f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 3)[compute_at]
+                d4f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 4)[compute_at]
+                d5f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 5)[compute_at]
+                d6f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 6)[compute_at]
+            else
+                throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+            end   
 
             d5f_dt = ParameterizedDerivs.d5f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt)
             d6f_dt = ParameterizedDerivs.d6f_dt(df_dλ, dλ_dt, d2f_dλ, d2λ_dt, d3f_dλ, d3λ_dt, d4f_dλ, d4λ_dt, d5f_dλ, d5λ_dt, d6f_dλ, d6λ_dt)
@@ -379,7 +415,7 @@ end
 
 function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, λ::AbstractArray, x::AbstractArray, dr::AbstractArray, dθ::AbstractArray,
     Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray,
-    Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     γ = [γr, γθ, γϕ];
 
     dx = [Float64[] for i in eachindex(x)]
@@ -407,8 +443,15 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
         if length(indices)==2
             i1, i2 = indices
             fit_params = zeros(2 * n_freqs + 1);
-            Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sij1data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)  
-            df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+            if fit=="GSL"
+                Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sij1data[i1, i2], nPoints, nHarm, chisq,  γ, fit_params)
+                df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+            elseif fit=="Julia"
+                Ω_fit = FourierFitJuliaBase.Fit_master!(λ,  Sij1data[i1, i2], nPoints, nHarm, γ, fit_params)
+                df_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 1)
+            else
+                throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+            end  
             df_dt = ParameterizedDerivs.df_dt.(df_dλ, dλ_dt)
             @views Sij2[i1, i2] = df_dt
         elseif length(indices)==3
@@ -416,14 +459,29 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
             for multipole in EstimateMultipoleDerivs.three_index_multipoles_wf
                 fit_params = zeros(2 * n_freqs + 1);
                 if isequal(multipole, "mass_oct_2nd")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params) 
-                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params)
+                        df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(λ,  Mijk2data[i1, i2, i3], nPoints, nHarm, γ, fit_params)
+                        df_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 1)
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end  
                     df_dt = ParameterizedDerivs.df_dt.(df_dλ, dλ_dt)
                     @views Mijk3[i1, i2, i3] = df_dt
                 elseif isequal(multipole, "current_oct_1st")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sijk1data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params)
-                    df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
-                    d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Sijk1data[i1, i2, i3], nPoints, nHarm, chisq,  γ, fit_params)
+                        df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                        d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(λ,  Sijk1data[i1, i2, i3], nPoints, nHarm, γ, fit_params)
+                        df_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 1)
+                        d2f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 2)
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end  
                     d2f_dt = ParameterizedDerivs.d2f_dt.(df_dλ, dλ_dt, d2f_dλ, d2λ_dt)
                     @views Sijk3[i1, i2, i3] = d2f_dt
                 end
@@ -431,9 +489,17 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
         else
             i1, i2, i3, i4 = indices
             fit_params = zeros(2 * n_freqs + 1);
-            Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, chisq,  γ, fit_params) 
-            df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
-            d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)
+            if fit=="GSL"
+                Ω_fit = FourierFitGSL.GSL_fit_master!(λ, Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, chisq,  γ, fit_params)
+                df_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                d2f_dλ = FourierFitGSL.curve_fit_functional_derivs(λ, Ω_fit, fit_params, n_freqs, nPoints, 2)
+            elseif fit=="Julia"
+                Ω_fit = FourierFitJuliaBase.Fit_master!(λ,  Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, γ, fit_params)
+                df_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 1)
+                d2f_dλ = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, λ, 2)
+            else
+                throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+            end 
             d2f_dt = ParameterizedDerivs.d2f_dt.(df_dλ, dλ_dt, d2f_dλ, d2λ_dt)
             @views Mijkl4[i1, i2, i3, i4] = d2f_dt
         end
@@ -446,7 +512,7 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
 end
 
 
-function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     Ω = [Ωr, Ωθ, Ωϕ];
     @inbounds Threads.@threads for indices in ConstructSymmetricArrays.traj_indices
         if length(indices)==2
@@ -454,24 +520,51 @@ function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2d
             for multipole in EstimateMultipoleDerivs.two_index_multipoles_tr
                 fit_params = zeros(2 * n_freqs + 1);
                 if isequal(multipole, "mass_quad_2nd")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mij2data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)
-                    @views Mij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
-                    @views Mij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                    @views Mij7[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-                    @views Mij8[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mij2data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)
+                        @views Mij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 3)[compute_at]
+                        @views Mij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                        @views Mij7[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                        @views Mij8[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(tdata, Mij2data[i1, i2], nPoints, nHarm, Ω, fit_params)
+                        @views Mij5[i1, i2] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 3)[compute_at]
+                        @views Mij6[i1, i2] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 4)[compute_at]
+                        @views Mij7[i1, i2] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 5)[compute_at]
+                        @views Mij8[i1, i2] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 6)[compute_at]
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end
+                    
 
                 elseif isequal(multipole, "current_quad_1st")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)                 
-                    @views Sij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
-                    @views Sij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)
+                        @views Sij5[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 4)[compute_at]
+                        @views Sij6[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, Ω, fit_params)
+                        @views Sij5[i1, i2] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 4)[compute_at]
+                        @views Sij6[i1, i2] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 5)[compute_at]
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end  
                 end
             end
         else
             i1, i2, i3 = indices
             fit_params = zeros(2 * n_freqs + 1);
-            Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params) 
-            @views Mijk7[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
-            @views Mijk8[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+            if fit=="GSL"
+                Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params)
+                @views Mijk7[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 5)[compute_at]
+                @views Mijk8[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 6)[compute_at]
+            elseif fit=="Julia"
+                Ω_fit = FourierFitJuliaBase.Fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, Ω, fit_params)
+                @views Mijk7[i1, i2, i3] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 5)[compute_at]
+                @views Mijk8[i1, i2, i3] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 6)[compute_at]
+            else
+                throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+            end 
         end
     end
 
@@ -484,31 +577,60 @@ end
 
 
 function moment_derivs_wf!(tdata::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, 
-    Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     Ω = [Ωr, Ωθ, Ωϕ];
     @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
         if length(indices)==2
             i1, i2 = indices
             fit_params = zeros(2 * n_freqs + 1);
-            Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)                 
-            @views Sij2[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 1)
+            if fit=="GSL"
+                Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, chisq,  Ω, fit_params)
+                @views Sij2[i1, i2] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 1)
+            elseif fit=="Julia"
+                Ω_fit = FourierFitJuliaBase.Fit_master!(tdata, Sij1data[i1, i2], nPoints, nHarm, Ω, fit_params)
+                @views Sij2[i1, i2] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 1)
+            else
+                throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+            end                
         elseif length(indices)==3
             i1, i2, i3 = indices
             for multipole in EstimateMultipoleDerivs.three_index_multipoles_wf
                 fit_params = zeros(2 * n_freqs + 1);
                 if isequal(multipole, "mass_oct_2nd")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params) 
-                    @views Mijk3[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params)
+                        @views Mijk3[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 1)
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(tdata, Mijk2data[i1, i2, i3], nPoints, nHarm, Ω, fit_params)
+                        @views Mijk3[i1, i2, i3] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 1)
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end
+                    
                 elseif isequal(multipole, "current_oct_1st")
-                    Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sijk1data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params) 
-                    @views Sijk3[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 2)
+                    if fit=="GSL"
+                        Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Sijk1data[i1, i2, i3], nPoints, nHarm, chisq,  Ω, fit_params)
+                        @views Sijk3[i1, i2, i3] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 2)
+                    elseif fit=="Julia"
+                        Ω_fit = FourierFitJuliaBase.Fit_master!(tdata, Sijk1data[i1, i2, i3], nPoints, nHarm, Ω, fit_params)
+                        @views Sijk3[i1, i2, i3] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 2)
+                    else
+                        throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+                    end
                 end
             end
         else
             i1, i2, i3, i4 = indices
             fit_params = zeros(2 * n_freqs + 1);
-            Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, chisq,  Ω, fit_params) 
-            @views Mijkl4[i1, i2, i3, i4] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 2)
+            if fit=="GSL"
+                Ω_fit = FourierFitGSL.GSL_fit_master!(tdata, Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, chisq,  Ω, fit_params)
+                @views Mijkl4[i1, i2, i3, i4] = FourierFitGSL.curve_fit_functional_derivs(tdata, Ω_fit, fit_params, n_freqs, nPoints, 2)
+            elseif fit=="Julia"
+                Ω_fit = FourierFitJuliaBase.Fit_master!(tdata, Mijkl2data[i1, i2, i3, i4], nPoints, nHarm, Ω, fit_params)
+                @views Mijkl4[i1, i2, i3, i4] = FourierFitJuliaBase.curve_fit_functional_derivs(fit_params, Ω_fit, tdata, 2)
+            else
+                throw(ValueError("argument `fit` must be either `GSL` or `Julia`"))
+            end
         end
     end
 
@@ -523,7 +645,7 @@ end
     vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64},
     θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray,
     Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64,
-    nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
 
     @inbounds for i=1:nPoints
         xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
@@ -544,7 +666,7 @@ end
     end
 
     EstimateMultipoleDerivs.moments_wf!(aH[1:nPoints], a_H[1:nPoints], vH[1:nPoints], v_H[1:nPoints], xH[1:nPoints], x_H[1:nPoints], m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_wf!(t, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq)
+    EstimateMultipoleDerivs.FourierFit.moment_derivs_wf!(t, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit)
 end
 
 @views function compute_waveform_moments_and_derivs_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, 
@@ -552,7 +674,7 @@ end
     λ::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64},
     ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, 
     Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, 
-    nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
 
     @inbounds for i=1:nPoints
         xBL[i] = Vector{Float64}([r[i], θ[i], ϕ[i]]);
@@ -573,7 +695,7 @@ end
     end
 
     EstimateMultipoleDerivs.moments_wf!(aH[1:nPoints], a_H[1:nPoints], vH[1:nPoints], v_H[1:nPoints], xH[1:nPoints], x_H[1:nPoints], m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_wf_Mino!(a, E, L, C, M, λ, xBL, rdot, θdot, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq)
+    EstimateMultipoleDerivs.FourierFit.moment_derivs_wf_Mino!(a, E, L, C, M, λ, xBL, rdot, θdot, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq, fit)
 end
 
 end

@@ -105,7 +105,7 @@ end
 
 # computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
 function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θi::Float64, nPoints::Int64, specify_ics::Bool, specify_params::Bool,
-    tmax::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10; ics::SVector{3, Float64}=SA[0.0, 0.0, 0.0],
+    tmax::Float64=50.0, Δti::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10; ics::SVector{3, Float64}=SA[0.0, 0.0, 0.0],
     E::Float64=0.0, L::Float64=0.0, Q::Float64=0.0, C::Float64=0.0, ra::Float64=0.0, p3::Float64=0.0, p4::Float64=0.0, zp::Float64=0.0,
     zm::Float64=0.0, data_path::String="Results/", save_to_file::Bool=false)
 
@@ -232,57 +232,57 @@ function compute_kerr_geodesic_past(a::Float64, p::Float64, e::Float64, θi::Flo
     reverse!(t); reverse!(r); reverse!(θ); reverse!(ϕ); reverse!(r_dot); reverse!(θ_dot); reverse!(ϕ_dot);
     reverse!(r_ddot); reverse!(θ_ddot); reverse!(ϕ_ddot); reverse!(dt_dτ); reverse!(psi); reverse!(chi);
 
-    if inspiral
-        # remove t=0 data which will be duplicated
-        pop!(t); pop!(r); pop!(θ); pop!(ϕ); pop!(r_dot); pop!(θ_dot); pop!(ϕ_dot);
-        pop!(r_ddot); pop!(θ_ddot); pop!(ϕ_ddot); pop!(dt_dτ); pop!(psi); pop!(chi);
-        return t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, r_ddot, θ_ddot, ϕ_ddot, dt_dτ, psi, chi
-    else
+    if save_to_file
         # save trajectory- rows are: t, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
         sol = [reshape(t, 1, nPoints); reshape(r, 1, nPoints); reshape(θ, 1, nPoints); reshape(ϕ, 1, nPoints);
             reshape(r_dot, 1, nPoints); reshape(θ_dot, 1, nPoints); reshape(ϕ_dot, 1, nPoints); reshape(r_ddot, 1, nPoints);
             reshape(θ_ddot, 1, nPoints); reshape(ϕ_ddot, 1, nPoints); reshape(dt_dτ, 1, nPoints); reshape(psi, 1, nPoints); reshape(chi, 1, nPoints)]
             
-        if save_to_file
-            mkpath(data_path)
-            ODE_filename=data_path * "HJ_ODE_past_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(reltol).txt"
-            open(ODE_filename, "w") do io
-                writedlm(io, sol)
-            end
-            println("ODE saved to: " * ODE_filename)
-        else
-            return sol
+        mkpath(data_path)
+        ODE_filename=data_path * "HJ_ODE_past_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(reltol).txt"
+        open(ODE_filename, "w") do io
+            writedlm(io, sol)
         end
+        println("ODE saved to: " * ODE_filename)
+    else
+        # # remove t=0 data which will be duplicated
+        # pop!(t); pop!(r); pop!(θ); pop!(ϕ); pop!(r_dot); pop!(θ_dot); pop!(ϕ_dot);
+        # pop!(r_ddot); pop!(θ_ddot); pop!(ϕ_ddot); pop!(dt_dτ); pop!(psi); pop!(chi);
+        return t, r, θ, ϕ, r_dot, θ_dot, ϕ_dot, r_ddot, θ_ddot, ϕ_ddot, dt_dτ, psi, chi
     end
 end
 
 # computes trajectory in Kerr characterized by a, p, e, θi (M=1, μ=1)
-function compute_kerr_geodesic_past_and_future(ics::SVector{3, Float64}, a::Float64, p::Float64, e::Float64, θmin::Float64, 
+@views function compute_kerr_geodesic_past_and_future(ics::SVector{3, Float64}, a::Float64, p::Float64, e::Float64, θmin::Float64, 
     specify_params::Bool, total_num_points::Int64, total_time_range::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10;
     E::Float64=0.0, L::Float64=0.0, Q::Float64=0.0, C::Float64=0.0, ra::Float64=0.0, p3::Float64=0.0, p4::Float64=0.0, zp::Float64=0.0,
-    zm::Float64=0.0, data_path::String="Results/")
-    save_to_file = false;
+    zm::Float64=0.0, data_path::String="Results/", save_to_file::Bool=false)
     use_custom_ics = true;
     nPoints = total_num_points÷2 + mod(total_num_points, 2);
     tmax = total_time_range/2.0;
-    if inspiral
-        # future part of geodesic
-        t_f, r_f, θ_f, ϕ_f, r_dot_f, θ_dot_f, ϕ_dot_f, r_ddot_f, θ_ddot_f, ϕ_ddot_f, Γ_f, psi_f, chi_f = BLTimeEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol; 
-        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file, inspiral=true)
 
-        # past part of geodesic
-        t_p, r_p, θ_p, ϕ_p, r_dot_p, θ_dot_p, ϕ_dot_p, r_ddot_p, θ_ddot_p, ϕ_ddot_p, Γ_p, psi_p, chi_p = BLTimeEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol;
-        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file, inspiral=true)
+    # future part of geodesic
+    t_f, r_f, θ_f, ϕ_f, r_dot_f, θ_dot_f, ϕ_dot_f, r_ddot_f, θ_ddot_f, ϕ_ddot_f, Γ_f, psi_f, chi_f = BLTimeEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol; 
+    ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = false)
 
-        # merge
-        return [t_p; t_f], [r_p; r_f], [θ_p; θ_f], [ϕ_p; ϕ_f], [r_dot_p; r_dot_f], [θ_dot_p; θ_dot_f], [ϕ_dot_p; ϕ_dot_f], [r_ddot_p; r_ddot_f],
-        [θ_ddot_p; θ_ddot_f], [ϕ_ddot_p; ϕ_ddot_f], [Γ_p; Γ_f], [psi_p; psi_f], [chi_p; chi_f]
+    # past part of geodesic
+    t_p, r_p, θ_p, ϕ_p, r_dot_p, θ_dot_p, ϕ_dot_p, r_ddot_p, θ_ddot_p, ϕ_ddot_p, Γ_p, psi_p, chi_p = BLTimeEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol;
+    ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = false)
+
+    if save_to_file
+        sol = [reshape([t_p[1:nPoints-1]; t_f], 1, total_num_points); reshape([r_p[1:nPoints-1]; r_f], 1, total_num_points); reshape([θ_p[1:nPoints-1]; θ_f], 1, total_num_points); reshape([ϕ_p[1:nPoints-1]; ϕ_f], 1, total_num_points);
+            reshape([r_dot_p[1:nPoints-1]; r_dot_f], 1, total_num_points); reshape([θ_dot_p[1:nPoints-1]; θ_dot_f], 1, total_num_points); reshape([ϕ_dot_p[1:nPoints-1]; ϕ_dot_f], 1, total_num_points); reshape([r_ddot_p[1:nPoints-1]; r_ddot_f], 1, total_num_points);
+            reshape([θ_ddot_p[1:nPoints-1]; θ_ddot_f], 1, total_num_points); reshape([ϕ_ddot_p[1:nPoints-1]; ϕ_ddot_f], 1, total_num_points); reshape([dt_dτ_p[1:nPoints-1]; dt_dτ_f], 1, total_num_points); reshape([psi_p[1:nPoints-1]; psi_f], 1, total_num_points); reshape([chi_p[1:nPoints-1]; chi_f], 1, total_num_points)]
+
+        mkpath(data_path)
+        ODE_filename=data_path * "HJ_ODE_past_future_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_tstep_$(saveat)_T_$(tmax)_tol_$(reltol).txt"
+        open(ODE_filename, "w") do io
+            writedlm(io, sol)
+        end
+        println("ODE saved to: " * ODE_filename)
     else
-        geodesic_future = BLTimeEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol; 
-        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
-        geodesic_past = BLTimeEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, tmax, Δti, reltol, abstol;
-        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
-        return hcat(geodesic_past[:, 1:(nPoints-1)], geodesic_future)
+        return [t_p[1:nPoints-1]; t_f], [r_p[1:nPoints-1]; r_f], [θ_p[1:nPoints-1]; θ_f], [ϕ_p[1:nPoints-1]; ϕ_f], [r_dot_p[1:nPoints-1]; r_dot_f], [θ_dot_p[1:nPoints-1]; θ_dot_f], [ϕ_dot_p[1:nPoints-1]; ϕ_dot_f], [r_ddot_p[1:nPoints-1]; r_ddot_f],
+        [θ_ddot_p[1:nPoints-1]; θ_ddot_f], [ϕ_ddot_p[1:nPoints-1]; ϕ_ddot_f], [Γ_p[1:nPoints-1]; Γ_f], [psi_p[1:nPoints-1]; psi_f], [chi_p[1:nPoints-1]; chi_f]
     end
 end
 

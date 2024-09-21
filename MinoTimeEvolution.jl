@@ -5,11 +5,11 @@ for further details.
 
 =#
 
-include("./Testing/BL_time_coordinate_derivs/d2x.jl");
-include("./Testing/BL_time_coordinate_derivs/d3x.jl");
-include("./Testing/BL_time_coordinate_derivs/d4x.jl");
-include("./Testing/BL_time_coordinate_derivs/d5x.jl");
-include("./Testing/BL_time_coordinate_derivs/d6x.jl");
+# include("./Testing/BL_time_coordinate_derivs/d2x.jl");
+# include("./Testing/BL_time_coordinate_derivs/d3x.jl");
+# include("./Testing/BL_time_coordinate_derivs/d4x.jl");
+# include("./Testing/BL_time_coordinate_derivs/d5x.jl");
+# include("./Testing/BL_time_coordinate_derivs/d6x.jl");
 # include("./Testing/Test_modules/MinoTimeBLTimeDerivs.jl");
 
 # module MinoDerivs
@@ -298,12 +298,7 @@ function compute_kerr_geodesic_past(a::Float64, p::Float64, e::Float64, θi::Flo
     reverse!(λ); reverse!(t); reverse!(r); reverse!(θ); reverse!(ϕ); reverse!(dr_dt); reverse!(dθ_dt); reverse!(dϕ_dt);
     reverse!(d2r_dt2); reverse!(d2θ_dt2); reverse!(d2ϕ_dt2); reverse!(dt_dλ); reverse!(psi); reverse!(chi); reverse!(dt_dτ)
 
-    if inspiral
-        # remove t=0 data which will be duplicated
-        pop!(λ); pop!(t); pop!(r); pop!(θ); pop!(ϕ); pop!(dr_dt); pop!(dθ_dt); pop!(dϕ_dt);
-        pop!(d2r_dt2); pop!(d2θ_dt2); pop!(d2ϕ_dt2); pop!(dt_dλ); pop!(psi); pop!(chi); pop!(dt_dτ)
-        return λ, t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ, psi, chi, dt_dλ
-    else
+    if save_to_file
         # save trajectory- rows are: λ, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
         sol = [reshape(λ, 1, nPoints); reshape(t, 1, nPoints); reshape(r, 1, nPoints); reshape(θ, 1, nPoints); reshape(ϕ, 1, nPoints);
                 reshape(dr_dt, 1, nPoints); reshape(dθ_dt, 1, nPoints); reshape(dϕ_dt, 1, nPoints); reshape(d2r_dt2, 1, nPoints);
@@ -312,16 +307,17 @@ function compute_kerr_geodesic_past(a::Float64, p::Float64, e::Float64, θi::Flo
         # reverse so time increases with successive columns
         reverse!(sol; dims=2)
 
-        if save_to_file
-            mkpath(data_path)
-            ODE_filename=data_path * "Mino_ODE_past_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_λstep_$(diff(saveat_λ)[1])_λmax_$(λmax)_tol_$(reltol).txt"
-            open(ODE_filename, "w") do io
-                writedlm(io, sol)
-            end
-            println("ODE saved to: " * ODE_filename)
-        else
-            return sol
+        mkpath(data_path)
+        ODE_filename=data_path * "Mino_ODE_past_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_λstep_$(diff(saveat_λ)[1])_λmax_$(λmax)_tol_$(reltol).txt"
+        open(ODE_filename, "w") do io
+            writedlm(io, sol)
         end
+        println("ODE saved to: " * ODE_filename)
+    else
+        # remove t=0 data which will be duplicated
+        pop!(λ); pop!(t); pop!(r); pop!(θ); pop!(ϕ); pop!(dr_dt); pop!(dθ_dt); pop!(dϕ_dt);
+        pop!(d2r_dt2); pop!(d2θ_dt2); pop!(d2ϕ_dt2); pop!(dt_dλ); pop!(psi); pop!(chi); pop!(dt_dτ)
+        return λ, t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ, psi, chi, dt_dλ
     end
 end
 
@@ -330,29 +326,28 @@ end
 function compute_kerr_geodesic_past_and_future(ics::SVector{4, Float64}, a::Float64, p::Float64, e::Float64, θmin::Float64,
     specify_params::Bool, total_num_points::Int64, total_time_range::Float64=3000.0, Δλi::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10;
     E::Float64=0.0, L::Float64=0.0, Q::Float64=0.0, C::Float64=0.0, ra::Float64=0.0, p3::Float64=0.0, p4::Float64=0.0, zp::Float64=0.0,
-    zm::Float64=0.0, data_path::String="Results/")
-    save_to_file = false;
+    zm::Float64=0.0, data_path::String="Results/", save_to_file::Bool=false)
     use_custom_ics = true;
     nPoints = total_num_points÷2 + mod(total_num_points, 2);
     λmax = total_time_range/2.0;
-    if inspiral
-        # future part of geodesic
-        λ_f, t_f, r_f, θ_f, ϕ_f, r_dot_f, θ_dot_f, ϕ_dot_f, r_ddot_f, θ_ddot_f, ϕ_ddot_f, Γ_f, psi_f, chi_f, dt_dλ_f = MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, λmax, Δλi, reltol, abstol; 
-        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file, inspiral=true)
-
-        # past part of geodesic
-        λ_p, t_p, r_p, θ_p, ϕ_p, r_dot_p, θ_dot_p, ϕ_dot_p, r_ddot_p, θ_ddot_p, ϕ_ddot_p, Γ_p, psi_p, chi_p, dt_dλ_p = MinoTimeEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, λmax, Δλi, reltol, abstol;
-        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file, inspiral=true)
-
-        # merge
-        return [λ_p; λ_f], [t_p; t_f], [r_p; r_f], [θ_p; θ_f], [ϕ_p; ϕ_f], [r_dot_p; r_dot_f], [θ_dot_p; θ_dot_f], [ϕ_dot_p; ϕ_dot_f],
-        [r_ddot_p; r_ddot_f], [θ_ddot_p; θ_ddot_f], [ϕ_ddot_p; ϕ_ddot_f], [Γ_p; Γ_f], [psi_p; psi_f], [chi_p; chi_f], [dt_dλ_p; dt_dλ_f]
-    else
+    if save_to_file
         geodesic_future = MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, λmax, Δλi, reltol, abstol; ics = ics,
         E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
         geodesic_past = MinoTimeEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, λmax, Δλi, reltol, abstol; ics = ics,
         E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
         return hcat(geodesic_past[:, 1:(nPoints-1)], geodesic_future)
+    else
+        # future part of geodesic
+        λ_f, t_f, r_f, θ_f, ϕ_f, r_dot_f, θ_dot_f, ϕ_dot_f, r_ddot_f, θ_ddot_f, ϕ_ddot_f, Γ_f, psi_f, chi_f, dt_dλ_f = MinoTimeEvolution.compute_kerr_geodesic(a, p, e, θmin, nPoints, use_custom_ics, specify_params, λmax, Δλi, reltol, abstol; 
+        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
+
+        # past part of geodesic
+        λ_p, t_p, r_p, θ_p, ϕ_p, r_dot_p, θ_dot_p, ϕ_dot_p, r_ddot_p, θ_ddot_p, ϕ_ddot_p, Γ_p, psi_p, chi_p, dt_dλ_p = MinoTimeEvolution.compute_kerr_geodesic_past(a, p, e, θmin, nPoints, use_custom_ics, specify_params, λmax, Δλi, reltol, abstol;
+        ics = ics, E, L, Q, C, ra, p3, p4, zp, zm, save_to_file = save_to_file)
+
+        # merge
+        return [λ_p; λ_f], [t_p; t_f], [r_p; r_f], [θ_p; θ_f], [ϕ_p; ϕ_f], [r_dot_p; r_dot_f], [θ_dot_p; θ_dot_f], [ϕ_dot_p; ϕ_dot_f],
+        [r_ddot_p; r_ddot_f], [θ_ddot_p; θ_ddot_f], [ϕ_ddot_p; ϕ_ddot_f], [Γ_p; Γ_f], [psi_p; psi_f], [chi_p; chi_f], [dt_dλ_p; dt_dλ_f]
     end
 end
 

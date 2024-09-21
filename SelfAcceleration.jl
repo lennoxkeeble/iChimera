@@ -301,7 +301,7 @@ using ...EstimateMultipoleDerivs
     θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
     Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function,
     g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, m::Float64, compute_at::Int64,
-    nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     
     # convert trajectories to BL coords
     @inbounds for i in eachindex(λ)
@@ -324,7 +324,7 @@ using ...EstimateMultipoleDerivs
     
     # calculate ddotMijk, ddotMijk, dotSij "analytically"
     EstimateMultipoleDerivs.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_tr_Mino!(a, E, L, C, M, λ, xBL[compute_at], sign(rdot[compute_at]), sign(θdot[compute_at]), Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq)
+    EstimateMultipoleDerivs.FourierFit.moment_derivs_tr_Mino!(a, E, L, C, M, λ, xBL[compute_at], sign(rdot[compute_at]), sign(θdot[compute_at]), Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq, fit)
 
     # calculate self force in BL and harmonic coordinates
     SelfAcceleration.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)
@@ -335,7 +335,7 @@ end
     θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
     Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function,
     g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, Ωr::Float64,
-    Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64})
+    Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     
     # convert trajectories to BL coords
     @inbounds for i in eachindex(t)
@@ -358,7 +358,7 @@ end
     
     # calculate ddotMijk, ddotMijk, dotSij "analytically"
     EstimateMultipoleDerivs.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq)
+    EstimateMultipoleDerivs.FourierFit.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit)
 
     # calculate self force in BL and harmonic coordinates
     SelfAcceleration.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)

@@ -39,8 +39,8 @@ using ...InspiralEvolution
 =#
 
 function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_range_factor::Float64, nPointsGeodesic::Int64, nPointsFit::Int64, M::Float64, m::Float64, a::Float64, p::Float64, 
-    e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
-    gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-10, abstol::Float64=1e-10; data_path::String="Data/")
+    e::Float64, θi::Float64, fit::String, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
+    gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-14, abstol::Float64=1e-14; data_path::String="Data/")
     if iseven(nPointsFit)
         throw(DomainError(nPointsFit, "nPointsFit must be odd"))
     end
@@ -193,7 +193,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         # compute waveform
         EstimateMultipoleDerivs.FourierFit.compute_waveform_moments_and_derivs!(a, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, 
             tt, rr, r_dot, r_ddot, θθ, θ_dot, θ_ddot, ϕϕ, ϕ_dot, ϕ_ddot, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp,
-            Sij2_wf_temp, Sijk3_wf_temp, nHarm, Ωr, Ωθ, Ωϕ, nPointsGeodesic, n_freqs, chisq)
+            Sij2_wf_temp, Sijk3_wf_temp, nHarm, Ωr, Ωθ, Ωϕ, nPointsGeodesic, n_freqs, chisq, fit)
 
         # store multipole data for waveforms — we only save the independent components
         @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
@@ -234,7 +234,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         
         tt_fit, rr_fit, θθ_fit, ϕϕ_fit, r_dot_fit, θ_dot_fit, ϕ_dot_fit, r_ddot_fit, θ_ddot_fit, ϕ_ddot_fit, Γ_fit, psi_fit, chi_fit = 
         BLTimeEvolution.compute_kerr_geodesic_past_and_future(midpoint_ics, a, p_t, e_t, θmin_t, use_specified_params, nPointsFit, T_Fit, Δti_fit, reltol, abstol;
-        E=E_t, L=L_t, Q=Q_t, C=C_t, ra=ra, p3=p3,p4=p4, zp=zp, zm=zm, inspiral=true)
+        E=E_t, L=L_t, Q=Q_t, C=C_t, ra=ra, p3=p3,p4=p4, zp=zp, zm=zm, save_to_file=false)
         
         compute_at=(nPointsFit÷2)+1;   # by construction, the end point of the physical geoodesic is at the center of the geodesic computed for the fit
         # println(("T_Fit = $(T_Fit)"))
@@ -250,7 +250,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         # compute self-force at end of physical geodesic
         SelfAcceleration.FourierFit.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL_fit, vBL_fit, aBL_fit, xH_fit, x_H_fit, rH_fit, vH_fit, v_H_fit, aH_fit, a_H_fit, v_fit, tt_fit, rr_fit, r_dot_fit,
             r_ddot_fit, θθ_fit, θ_dot_fit, θ_ddot_fit, ϕϕ_fit, ϕ_dot_fit, ϕ_ddot_fit, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data,
-            Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPointsFit, n_freqs, chisq);
+            Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPointsFit, n_freqs, chisq, fit);
 
         # evolve orbital parameters using self-force
         EvolveConstants.Evolve_BL(compute_SF, a, last(tt), last(rr), last(θθ), last(ϕϕ), last(Γ), last(r_dot), last(θ_dot), last(ϕ_dot),
@@ -283,27 +283,27 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     mkpath(data_path)
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_H = hcat(aSF_H...)
-    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_H)
     end
 
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_BL = hcat(aSF_BL...)
-    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_BL)
     end
 
     # save trajectory- rows are: τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
     sol = transpose(stack([t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ]))
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     open(ODE_filename, "w") do io
         writedlm(io, sol)
     end
 
     # save waveform multipole moments
-    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.jld2"
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.jld2"
     waveform_dictionary = Dict{String, AbstractArray}("Mij2" => Mij2_wf, "Mijk3" => Mijk3_wf, "Mijkl4" => Mijkl4_wf, "Sij2" => Sij2_wf, "Sijk3" => Sijk3_wf)
     save(waveform_filename, "data", waveform_dictionary)
 
@@ -313,29 +313,29 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     derivs = (Edot, Ldot, Qdot, Cdot)
     derivs = vcat(transpose.(derivs)...)
 
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     open(constants_filename, "w") do io
         writedlm(io, constants)
     end
 
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     open(constants_derivs_filename, "w") do io
         writedlm(io, derivs)
     end
 end
 
-function load_trajectory(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
+function load_trajectory(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
     # load ODE solution
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     sol = readdlm(ODE_filename)
     t=sol[1,:]; r=sol[2,:]; θ=sol[3,:]; ϕ=sol[4,:]; dr_dt=sol[5,:]; dθ_dt=sol[6,:]; dϕ_dt=sol[7,:]; d2r_dt2=sol[8,:]; d2θ_dt2=sol[9,:]; d2ϕ_dt2=sol[10,:]; dt_dτ=sol[11,:]
     return t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ
 end
 
-function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     constants=readdlm(constants_filename)
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     constants_derivs = readdlm(constants_derivs_filename)
     t_Fluxes, EE, LL, QQ, CC, pArray, ecc, θmin = constants[1, :], constants[2, :], constants[3, :], constants[4, :], constants[5, :], constants[6, :], constants[7, :], constants[8, :]
     Edot, Ldot, Qdot, Cdot = constants_derivs[1, :], constants_derivs[2, :], constants_derivs[3, :], constants_derivs[4, :]
@@ -343,9 +343,9 @@ function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float
 end
 
 function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
-    nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
+    nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
     # load waveform multipole moments
-    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.jld2"
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.jld2"
     waveform_data = load(waveform_filename)["data"]
     Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
     Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
@@ -364,23 +364,23 @@ function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Ve
     return h_plus, h_cross
 end
 
-function delete_EMRI_data(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
-    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+function delete_EMRI_data(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
+    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     rm(SF_filename)
 
-    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     rm(SF_filename)
 
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     rm(ODE_filename)
 
-    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.jld2"
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.jld2"
     rm(waveform_filename)
 
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     rm(constants_filename)
 
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_fit.txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.txt"
     rm(constants_derivs_filename)
 end
 
@@ -410,8 +410,8 @@ using ...InspiralEvolution
 
 
 function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_range_factor::Float64, nPointsGeodesic::Int64, nPointsFit::Int64, M::Float64, m::Float64, a::Float64, p::Float64,
-    e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
-    gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-10, abstol::Float64=1e-10; data_path::String="Data/")
+    e::Float64, θi::Float64,  fit::String, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
+    gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-14, abstol::Float64=1e-14; data_path::String="Data/")
     if iseven(nPointsFit)
         throw(DomainError(nPointsFit, "nPointsFit must be odd"))
     end
@@ -565,7 +565,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         # compute waveform
         EstimateMultipoleDerivs.FourierFit.compute_waveform_moments_and_derivs_Mino!(a, E_t, L_t, C_t, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, 
         λλ, rr, r_dot, r_ddot, θθ, θ_dot, θ_ddot, ϕϕ, ϕ_dot, ϕ_ddot, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp,
-        Sij2_wf_temp, Sijk3_wf_temp, nHarm, ωr, ωθ, ωϕ, nPointsGeodesic, n_freqs, chisq)
+        Sij2_wf_temp, Sijk3_wf_temp, nHarm, ωr, ωθ, ωϕ, nPointsGeodesic, n_freqs, chisq, fit)
         
 
         # store multipole data for waveforms — note that we only save the independent components
@@ -606,7 +606,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         
         λλ_fit, tt_fit, rr_fit, θθ_fit, ϕϕ_fit, r_dot_fit, θ_dot_fit, ϕ_dot_fit, r_ddot_fit, θ_ddot_fit, ϕ_ddot_fit, Γ_fit, psi_fit, chi_fit, dt_dλ_fit = 
         MinoTimeEvolution.compute_kerr_geodesic_past_and_future(midpoint_ics, a, p_t, e_t, θmin_t, use_specified_params, nPointsFit, T_Fit, Δλi_fit, reltol, abstol;
-        E=E_t, L=L_t, Q=Q_t, C=C_t, ra=ra, p3=p3,p4=p4, zp=zp, zm=zm, inspiral=true)
+        E=E_t, L=L_t, Q=Q_t, C=C_t, ra=ra, p3=p3,p4=p4, zp=zp, zm=zm, save_to_file=false)
 
         compute_at=(nPointsFit÷2)+1;   # by construction, the end point of the physical geoodesic is at the center of the geodesic computed for the fit
         # check that that the midpoint of the fit geodesic arrays are equal to the final point of the physical arrays
@@ -622,7 +622,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         SelfAcceleration.FourierFit.selfAcc_Mino!(aSF_H_temp, aSF_BL_temp, xBL_fit, vBL_fit, aBL_fit, xH_fit, x_H_fit, rH_fit, vH_fit, v_H_fit, aH_fit, a_H_fit, v_fit, λλ_fit, 
             rr_fit, r_dot_fit, r_ddot_fit, θθ_fit, θ_dot_fit, θ_ddot_fit, ϕϕ_fit, ϕ_dot_fit, ϕ_ddot_fit, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6,
             Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, E_t, L_t, C_t, M, m, compute_at, nHarm,
-            ωr, ωθ, ωϕ, nPointsFit, n_freqs, chisq);
+            ωr, ωθ, ωϕ, nPointsFit, n_freqs, chisq, fit);
         
         Δt = last(tt) - tt[1]
         EvolveConstants.Evolve_BL(Δt, a, last(tt), last(rr), last(θθ), last(ϕϕ), last(Γ), last(r_dot), last(θ_dot), last(ϕ_dot),
@@ -654,27 +654,27 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     mkpath(data_path)
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_H = hcat(aSF_H...)
-    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_H)
     end
 
     # matrix of SF values- rows are components, columns are component values at different times
     aSF_BL = hcat(aSF_BL...)
-    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     open(SF_filename, "w") do io
         writedlm(io, aSF_BL)
     end
 
     # save trajectory- rows are: τRange, t, r, θ, ϕ, tdot, rdot, θdot, ϕdot, tddot, rddot, θddot, ϕddot, columns are component values at different times
     sol = transpose(stack([λ, t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ, dt_dλ]))
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     open(ODE_filename, "w") do io
         writedlm(io, sol)
     end
 
     # save waveform multipole moments
-    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.jld2"
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.jld2"
     waveform_dictionary = Dict{String, AbstractArray}("Mij2" => Mij2_wf, "Mijk3" => Mijk3_wf, "Mijkl4" => Mijkl4_wf, "Sij2" => Sij2_wf, "Sijk3" => Sijk3_wf)
     save(waveform_filename, "data", waveform_dictionary)
 
@@ -684,30 +684,30 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     derivs = (Edot, Ldot, Qdot, Cdot)
     derivs = vcat(transpose.(derivs)...)
 
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     open(constants_filename, "w") do io
         writedlm(io, constants)
     end
 
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     open(constants_derivs_filename, "w") do io
         writedlm(io, derivs)
     end
 end
 
-function load_trajectory(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
+function load_trajectory(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
     # load ODE solution
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     sol = readdlm(ODE_filename)
     λ=sol[1,:]; t=sol[2,:]; r=sol[3,:]; θ=sol[4,:]; ϕ=sol[5,:]; dr_dt=sol[6,:]; dθ_dt=sol[7,:]; dϕ_dt=sol[8,:]; d2r_dt2=sol[9,:]; d2θ_dt2=sol[10,:]; d2ϕ_dt2=sol[11,:]; dt_dτ=sol[12,:]; dt_dλ=sol[13,:]
     return λ, t, r, θ, ϕ, dr_dt, dθ_dt, dϕ_dt, d2r_dt2, d2θ_dt2, d2ϕ_dt2, dt_dτ, dt_dλ
 end
 
 
-function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     constants=readdlm(constants_filename)
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     constants_derivs = readdlm(constants_derivs_filename)
     t_Fluxes, EE, LL, QQ, CC, pArray, ecc, θmin = constants[1, :], constants[2, :], constants[3, :], constants[4, :], constants[5, :], constants[6, :], constants[7, :], constants[8, :]
     Edot, Ldot, Qdot, Cdot = constants_derivs[1, :], constants_derivs[2, :], constants_derivs[3, :], constants_derivs[4, :]
@@ -715,9 +715,9 @@ function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float
 end
 
 function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
-    nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
+    nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
     # load waveform multipole moments
-    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.jld2"
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.jld2"
     waveform_data = load(waveform_filename)["data"]
     Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
     Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
@@ -737,23 +737,23 @@ function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Ve
 
 end
 
-function delete_EMRI_data(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, data_path::String)
-    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+function delete_EMRI_data(a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
+    constants_filename=data_path * "constants_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     rm(constants_filename)
 
-    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    constants_derivs_filename=data_path * "constants_derivs_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     rm(constants_derivs_filename)
 
-    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    ODE_filename=data_path * "EMRI_ODE_sol_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     rm(ODE_filename)
 
-    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    SF_filename=data_path * "aSF_H_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     rm(SF_filename)
     
-    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.txt"
+    SF_filename=data_path * "aSF_BL_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.txt"
     rm(SF_filename)
 
-    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_fit.jld2"
+    waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(m/M)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.jld2"
     rm(waveform_filename)
 end
 
@@ -786,7 +786,7 @@ using FileIO
 using ...InspiralEvolution
 
 ### following function not maintained ###
-function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, h::Float64=0.15, reltol::Float64=1e-10, abstol::Float64=1e-10; data_path::String="Data/")
+function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, h::Float64=0.15, reltol::Float64=1e-14, abstol::Float64=1e-14; data_path::String="Data/")
     # create arrays for trajectory
     t = Float64[]; r = Float64[]; θ = Float64[]; ϕ = Float64[];
     dt_dτ = Float64[]; dr_dt = Float64[]; dθ_dt = Float64[]; dϕ_dt = Float64[];
@@ -1037,7 +1037,7 @@ using ...InspiralEvolution
 
 function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float64, m::Float64, a::Float64, p::Float64, e::Float64, θi::Float64, 
     Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
-    gRR::Function, gThTh::Function, gΦΦ::Function, h::Float64=0.15, reltol::Float64=1e-10, abstol::Float64=1e-10; data_path::String="Data/")
+    gRR::Function, gThTh::Function, gΦΦ::Function, h::Float64=0.15, reltol::Float64=1e-14, abstol::Float64=1e-14; data_path::String="Data/")
 
     # create arrays for trajectory
     λ = Float64[]; t = Float64[]; r = Float64[]; θ = Float64[]; ϕ = Float64[];
@@ -1198,7 +1198,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float
         T_Fit = (stencil_array_length - 1) * h;
         λλ_stencil, tt_stencil, rr_stencil, θθ_stencil, ϕϕ_stencil, r_dot_stencil, θ_dot_stencil, ϕ_dot_stencil, r_ddot_stencil, θ_ddot_stencil, ϕ_ddot_stencil, Γ_stencil, psi_stencil, chi_stencil, dt_dλ_stencil = 
         MinoTimeEvolution.compute_kerr_geodesic_past_and_future(midpoint_ics, a, p_t, e_t, θmin_t, use_specified_params, stencil_array_length, T_Fit, Δλi, reltol, abstol;
-        E=E_t, L=L_t, Q=Q_t, C=C_t, ra=ra, p3=p3,p4=p4, zp=zp, zm=zm, inspiral=true)
+        E=E_t, L=L_t, Q=Q_t, C=C_t, ra=ra, p3=p3,p4=p4, zp=zp, zm=zm, save_to_file=false)
         
         # println(length(λλ_stencil))
         # println(λλ_stencil)
@@ -1384,7 +1384,7 @@ using ...InspiralEvolution
 
 function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, nPointsGeodesic::Int64, M::Float64, m::Float64, a::Float64, p::Float64, 
     e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
-    gRR::Function, gThTh::Function, gΦΦ::Function, reltol::Float64=1e-10, abstol::Float64=1e-10; data_path::String="Data/")
+    gRR::Function, gThTh::Function, gΦΦ::Function, reltol::Float64=1e-14, abstol::Float64=1e-14; data_path::String="Data/")
 
     # create arrays for trajectory
     t = Float64[]; r = Float64[]; θ = Float64[]; ϕ = Float64[];
@@ -1721,7 +1721,7 @@ using ...InspiralEvolution
 
 function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, nPointsGeodesic::Int64, M::Float64, m::Float64, a::Float64, p::Float64,
     e::Float64, θi::Float64,  Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
-    gRR::Function, gThTh::Function, gΦΦ::Function, reltol::Float64=1e-10, abstol::Float64=1e-10; data_path::String="Data/")
+    gRR::Function, gThTh::Function, gΦΦ::Function, reltol::Float64=1e-14, abstol::Float64=1e-14; data_path::String="Data/")
 
     # create arrays for trajectory
     λ = Float64[]; t = Float64[]; r = Float64[]; θ = Float64[]; ϕ = Float64[];

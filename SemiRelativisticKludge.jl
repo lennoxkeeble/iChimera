@@ -1,5 +1,5 @@
 module SemiRelativisticKludge
-using DelimitedFiles, ..Deriv3, ..BLTimeEvolution
+using DelimitedFiles, ..BLDeriv3, ..BLTimeEvolution
 
 module Waveform
 # mass quadrupole
@@ -105,7 +105,7 @@ function kerr_waveform(a::Float64, p::Float64, e::Float64, θmin::Float64, t_max
         x_BL = [r_i, θ_i, ϕ_i];
         v_BL = [r_dot_i, θ_dot_i, ϕ_dot_i];
         a_BL = [r_ddot_i, θ_ddot_i, ϕ_ddot_i];
-        r_dddot_i = Deriv3.d3r_dt(a_BL, v_BL, x_BL, a); θ_dddot_i = Deriv3.d3θ_dt(a_BL, v_BL, x_BL, a); ϕ_dddot_i = Deriv3.d3ϕ_dt(a_BL, v_BL, x_BL, a);
+        r_dddot_i = BLDeriv3.d3r_dt(a_BL, v_BL, x_BL, a); θ_dddot_i = BLDeriv3.d3θ_dt(a_BL, v_BL, x_BL, a); ϕ_dddot_i = BLDeriv3.d3ϕ_dt(a_BL, v_BL, x_BL, a);
 
         # project onto cartesian coordinates in flat space
         sinθ = sin(θ_i); cosθ = cos(θ_i);
@@ -256,7 +256,7 @@ using ..Fluxes
 using JLD2
 using FileIO
 using ..Waveform
-using ..Deriv3
+using ..BLDeriv3
 using Roots
 
 Z_1(a::Float64, M::Float64) = 1 + (1 - a^2 / M^2)^(1/3) * ((1 + a / M)^(1/3) + (1 - a / M)^(1/3))
@@ -584,7 +584,7 @@ function compute_inspiral_waveform(a::Float64, p::Float64, e::Float64, ι::Float
         x_BL = [r_i, θ_i, ϕ_i];
         v_BL = [r_dot_i, θ_dot_i, ϕ_dot_i];
         a_BL = [r_ddot_i, θ_ddot_i, ϕ_ddot_i];
-        r_dddot_i = Deriv3.d3r_dt(a_BL, v_BL, x_BL, a); θ_dddot_i = Deriv3.d3θ_dt(a_BL, v_BL, x_BL, a); ϕ_dddot_i = Deriv3.d3ϕ_dt(a_BL, v_BL, x_BL, a);
+        r_dddot_i = BLDeriv3.d3r_dt(a_BL, v_BL, x_BL, a); θ_dddot_i = BLDeriv3.d3θ_dt(a_BL, v_BL, x_BL, a); ϕ_dddot_i = BLDeriv3.d3ϕ_dt(a_BL, v_BL, x_BL, a);
 
         # project onto cartesian coordinates in flat space
         sinθ = sin(θ_i); cosθ = cos(θ_i);
