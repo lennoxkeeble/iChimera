@@ -8,12 +8,12 @@
 module FourierFitLsqFit
 using LsqFit
 
-# compute Float64 of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
+# compute number of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
 compute_num_fitting_freqs_1(nHarm::Int64) = nHarm
 compute_num_fitting_freqs_2(nHarm::Int64) = Int((nHarm * (5 + 3 * nHarm) / 2))
 compute_num_fitting_freqs_3(nHarm::Int64) = Int( nHarm * (13 + 2 * nHarm * (9 + 4 * nHarm)) / 3)
 
-function compute_num_fitting_freqs_master(nHarm::Int64, Ω::Vector{Float64})
+function compute_num_fitting_freqs_master(nHarm::Int64, Ω::AbstractVector{Float64})
     num_freqs = sum(Ω .< 1e9)
     if num_freqs==3
         compute_num_fitting_freqs_3(nHarm)
@@ -59,7 +59,7 @@ function compute_fitting_frequencies_3(nHarm::Int64, Ωr::Float64, Ωθ::Float64
     return Ω
 end
 
-function compute_fitting_frequencies_master(nHarm::Int64, Ω::Vector{Float64})
+function compute_fitting_frequencies_master(nHarm::Int64, Ω::AbstractVector{Float64})
     freqs = Ω[Ω .< 1e9];
     num_freqs = length(freqs);
     if num_freqs==1
@@ -120,7 +120,7 @@ function curve_fit_functional_derivs(params::AbstractVector{T}, fit_freqs::Abstr
 end
 
 # master functions for carrying out fit with one, two or three fundamental frequencies
-function LsqFit_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, fit_params::Vector{Float64})
+function LsqFit_1!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_1(nHarm, Ω1)
     n_freqs = compute_num_fitting_freqs_1(nHarm)
@@ -133,7 +133,7 @@ function LsqFit_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, nHarm::Int64,
     return Ω_fit
 end
 
-function LsqFit_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, fit_params::Vector{Float64})
+function LsqFit_2!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_2(nHarm, Ω1, Ω2)
     n_freqs = compute_num_fitting_freqs_2(nHarm)
@@ -146,7 +146,7 @@ function LsqFit_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, nHarm::Int64,
     return Ω_fit
 end
 
-function LsqFit_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::Vector{Float64})
+function LsqFit_3!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_3(nHarm, Ω1, Ω2, Ω3)
     n_freqs = compute_num_fitting_freqs_3(nHarm)
@@ -159,7 +159,7 @@ function LsqFit_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, nHarm::Int64,
     return Ω_fit
 end
 
-function LsqFit_master!(xdata::Vector{Float64}, ydata::Vector{Float64}, nHarm::Int64,  Ω::Vector{Float64}, fit_params::Vector{Float64})
+function LsqFit_master!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, nHarm::Int64,  Ω::AbstractVector{Float64}, fit_params::AbstractVector{Float64})
     freqs = Ω[Ω .< 1e9];
     num_freqs = length(freqs);
     if num_freqs==1
@@ -173,7 +173,7 @@ end
 
 #### fitting functions which simultaneously fit the data and its first (and possibly second) derivative
 # master functions for carrying out fit with one, two or three fundamental frequencies
-function LsqFit_first_deriv_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, fit_params::Vector{Float64})
+function LsqFit_first_deriv_1!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_1(nHarm, Ω1)
     n_freqs = compute_num_fitting_freqs_1(nHarm)
@@ -186,7 +186,7 @@ function LsqFit_first_deriv_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, d
     return Ω_fit
 end
 
-function LsqFit_first_deriv_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, fit_params::Vector{Float64})
+function LsqFit_first_deriv_2!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_2(nHarm, Ω1, Ω2)
     n_freqs = compute_num_fitting_freqs_2(nHarm)
@@ -199,7 +199,7 @@ function LsqFit_first_deriv_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, d
     return Ω_fit
 end
 
-function LsqFit_first_deriv_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::Vector{Float64})
+function LsqFit_first_deriv_3!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_3(nHarm, Ω1, Ω2, Ω3)
     n_freqs = compute_num_fitting_freqs_3(nHarm)
@@ -212,7 +212,7 @@ function LsqFit_first_deriv_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, d
     return Ω_fit
 end
 
-function LsqFit_first_deriv_master!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, nHarm::Int64,  Ω::Vector{Float64}, fit_params::Vector{Float64})
+function LsqFit_first_deriv_master!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, nHarm::Int64,  Ω::AbstractVector{Float64}, fit_params::AbstractVector{Float64})
     freqs = Ω[Ω .< 1e9];
     num_freqs = length(freqs);
     if num_freqs==1
@@ -224,7 +224,7 @@ function LsqFit_first_deriv_master!(xdata::Vector{Float64}, ydata::Vector{Float6
     end
 end
 
-function LsqFit_second_deriv_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, d2ydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, fit_params::Vector{Float64})
+function LsqFit_second_deriv_1!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, d2ydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_1(nHarm, Ω1)
     n_freqs = compute_num_fitting_freqs_1(nHarm)
@@ -237,7 +237,7 @@ function LsqFit_second_deriv_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, 
     return Ω_fit
 end
 
-function LsqFit_second_deriv_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, d2ydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, fit_params::Vector{Float64})
+function LsqFit_second_deriv_2!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, d2ydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_2(nHarm, Ω1, Ω2)
     n_freqs = compute_num_fitting_freqs_2(nHarm)
@@ -250,7 +250,7 @@ function LsqFit_second_deriv_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, 
     return Ω_fit
 end
 
-function LsqFit_second_deriv_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, d2ydata::Vector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::Vector{Float64})
+function LsqFit_second_deriv_3!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, d2ydata::AbstractVector{Float64}, nHarm::Int64,  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitLsqFit.compute_fitting_frequencies_3(nHarm, Ω1, Ω2, Ω3)
     n_freqs = compute_num_fitting_freqs_3(nHarm)
@@ -263,7 +263,7 @@ function LsqFit_second_deriv_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, 
     return Ω_fit
 end
 
-function LsqFit_second_deriv_master!(xdata::Vector{Float64}, ydata::Vector{Float64}, dydata::Vector{Float64}, d2ydata::Vector{Float64}, nHarm::Int64,  Ω::Vector{Float64}, fit_params::Vector{Float64})
+function LsqFit_second_deriv_master!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, dydata::AbstractVector{Float64}, d2ydata::AbstractVector{Float64}, nHarm::Int64,  Ω::AbstractVector{Float64}, fit_params::AbstractVector{Float64})
     freqs = Ω[Ω .< 1e9];
     num_freqs = length(freqs);
     if num_freqs==1

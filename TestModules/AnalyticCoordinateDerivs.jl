@@ -8,8 +8,8 @@ module AnalyticCoordinateDerivs
 using ..MinoDerivs1, ..MinoDerivs2, ..MinoDerivs3, ..MinoDerivs4, ..MinoDerivs5, ..MinoDerivs6, ..MinoDerivs7, ..MinoDerivs8, ..ParameterizedDerivs, ..MinoTimeDerivs
 
 # x = [r, θ, ϕ], while dx_dt, d2x_dt,..., d8x_dt are empty arrays to be filled like dx_dt = [dr/dt, dθ/dt, dϕ/dt], ..., d8x_dt = [d8r/dt8, d8θ/dt8, d8ϕ/dt8] (and similarly for Mino time)
-function ComputeDerivs!(x::Vector{Float64}, sign_dr::Float64, sign_dθ::Float64, dx_dt::Vector{Float64}, d2x_dt::Vector{Float64}, d3x_dt::Vector{Float64}, d4x_dt::Vector{Float64}, d5x_dt::Vector{Float64}, d6x_dt::Vector{Float64}, d7x_dt::Vector{Float64}, d8x_dt::Vector{Float64},
-    dx_dλ::Vector{Float64}, d2x_dλ::Vector{Float64}, d3x_dλ::Vector{Float64}, d4x_dλ::Vector{Float64}, d5x_dλ::Vector{Float64}, d6x_dλ::Vector{Float64}, d7x_dλ::Vector{Float64}, d8x_dλ::Vector{Float64}, a::Float64, M::Float64, E::Float64, L::Float64, C::Float64)
+function ComputeDerivs!(x::AbstractVector{Float64}, sign_dr::Float64, sign_dθ::Float64, dx_dt::AbstractVector{Float64}, d2x_dt::AbstractVector{Float64}, d3x_dt::AbstractVector{Float64}, d4x_dt::AbstractVector{Float64}, d5x_dt::AbstractVector{Float64}, d6x_dt::AbstractVector{Float64}, d7x_dt::AbstractVector{Float64}, d8x_dt::AbstractVector{Float64},
+    dx_dλ::AbstractVector{Float64}, d2x_dλ::AbstractVector{Float64}, d3x_dλ::AbstractVector{Float64}, d4x_dλ::AbstractVector{Float64}, d5x_dλ::AbstractVector{Float64}, d6x_dλ::AbstractVector{Float64}, d7x_dλ::AbstractVector{Float64}, d8x_dλ::AbstractVector{Float64}, a::Float64, M::Float64, E::Float64, L::Float64, C::Float64)
 
   ### COMPUTE DIRST-ORDER SPATIAL DERIVS WRT MINO TIME ###
   dx_dλ[1] = MinoDerivs1.dr_dλ(x, a, M, E, L, C) * sign_dr;

@@ -32,8 +32,8 @@ dp_dt(a::Float64, e::Float64, ι::Float64, ψ0::Float64, p::Float64, m::Float64,
 de_dt(a::Float64, e::Float64, ι::Float64, ψ0::Float64, p::Float64, m::Float64, M::Float64) = -(m / M^2) * (M / p)^4 * (1.0 / (1.0 - e^2))^2.5 * e * ((304.0 + 121.0 * e^2) / 15.0 - (a / M^2) * (M / (p * (1.0 - e^2)))^1.5 * 
 cos(ι) * (1364.0 / 5.0 + 5032.0 * e^2 / 15.0 + 263.0 * e^4 / 10.0))
 
-function EvolveConstants(Δt::Float64, a::Float64, r::Float64, θ::Float64, E::Vector{Float64}, Edot::Vector{Float64}, L::Vector{Float64}, 
-    Ldot::Vector{Float64}, C::Vector{Float64}, Cdot::Vector{Float64}, p::Vector{Float64}, e::Vector{Float64}, ι::Vector{Float64}, m::Float64, M::Float64, nPoints::Int64)
+function EvolveConstants(Δt::Float64, a::Float64, r::Float64, θ::Float64, E::AbstractVector{Float64}, Edot::AbstractVector{Float64}, L::AbstractVector{Float64}, 
+    Ldot::AbstractVector{Float64}, C::AbstractVector{Float64}, Cdot::AbstractVector{Float64}, p::AbstractVector{Float64}, e::AbstractVector{Float64}, ι::AbstractVector{Float64}, m::Float64, M::Float64, nPoints::Int64)
     EE = last(E); LL = last(L); CC = last(C); ee = last(e); pp = last(p); ιι = last(ι);
 
     if ee == 0.0

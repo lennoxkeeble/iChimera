@@ -31,7 +31,7 @@ dθ_dchi(χ::Float64, θ::Float64, θmin::Float64) = cos(θmin)^2 * sin(2.0χ) /
 dθ_dt(dchi_dt::Float64, χ::Float64, θ::Float64, θmin::Float64) = dθ_dchi(χ, θ, θmin) * dchi_dt
 
 # function to compute dt/dτ (Eq. 28)
-function Γ(t::Float64, r::Float64, θ::Float64, ϕ::Float64, v::Vector{Float64}, a::Float64, M::Float64)
+function Γ(t::Float64, r::Float64, θ::Float64, ϕ::Float64, v::AbstractVector{Float64}, a::Float64, M::Float64)
     one_over_Γ = -Kerr.KerrMetric.g_tt(t, r, θ, ϕ, a, M)
     @inbounds for i=1:3
         one_over_Γ += -2.0Kerr.KerrMetric.g_μν(t, r, θ, ϕ, a, M, 1, i+1) * v[i]    # i+1 since g_μν is indexed with μ=1,2,3,4

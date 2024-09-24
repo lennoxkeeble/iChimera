@@ -115,11 +115,11 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
             T_Fit = t_range_factor * minimum(@. 2π/Ω)
         end
 
-        saveat = T_Fit / (nPoints-1);    # the user specifies the Float64 of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
+        saveat = T_Fit / (nPoints-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
 
         # to compute the self force at a point, we must overshoot the solution into the future
         tF = t0 + (nPoints-1) * saveat + (nPoints÷2) * saveat   # evolve geodesic up to tF
-        total_num_points = nPoints+(nPoints÷2)   # total Float64 of points in geodesic since we overshoot
+        total_num_points = nPoints+(nPoints÷2)   # total number of points in geodesic since we overshoot
         Δti=saveat;    # initial time step for geodesic integration
 
         saveat_t = range(t0, tF, total_num_points) |> collect

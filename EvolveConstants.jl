@@ -5,7 +5,7 @@ using ..CircularNonEquatorial
 using ..HarmonicCoords
 
 function Evolve_BL(Δt::Float64, a::Float64, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64,
-    aSF_BL::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray,
+    aSF_BL::AbstractVector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray,
     CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
     # first load orbital constants of previous geodesic (recall that we compute updated constants to move to the next geodesic in the inspiral)
     E0 = last(EE); L0 = last(LL); Q0 = last(QQ); C0 = last(CC); p0 = last(pArray); e0 = last(ecc); θmin_0 = last(θmin);
@@ -117,7 +117,7 @@ function Killing_tensor_H(a::Float64, xH::AbstractArray, t::Float64, r::Float64,
     return tensor
 end
 
-function Evolve_Harm(Δt::Float64, a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64, aSF_H::Vector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray, CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
+function Evolve_Harm(Δt::Float64, a::Float64, xH::AbstractArray, t::Float64, r::Float64, θ::Float64, ϕ::Float64, Γ::Float64, rdot::Float64, θdot::Float64, ϕdot::Float64, aSF_H::AbstractVector{Float64}, EE::AbstractArray, Edot::AbstractArray, LL::AbstractArray, Ldot::AbstractArray, QQ::AbstractArray, Qdot::AbstractArray, CC::AbstractArray, Cdot::AbstractArray, pArray::AbstractArray, ecc::AbstractArray, θmin::AbstractArray, M::Float64, nPoints::Int64)
     E0 = last(EE); L0 = last(LL); Q0 = last(QQ); C0 = last(CC); p0 = last(pArray); e0 = last(ecc); θmin_0 = last(θmin);
     temporal_killing = Killing_temporal_H(a, xH, t, r, θ, ϕ, M)
     axial_killing = Killing_axial_H(a, xH, t, r, θ, ϕ, M)

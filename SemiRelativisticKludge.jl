@@ -3,47 +3,47 @@ using DelimitedFiles, ..BLDeriv3, ..BLTimeEvolution
 
 module Waveform
 # mass quadrupole
-function Ijk(x::Vector{Float64}, m::Float64, j::Int64, k::Int64)
+function Ijk(x::AbstractVector{Float64}, m::Float64, j::Int64, k::Int64)
     return m * x[j] * x[k]   # Eq. 6.20
 end
 
 # first time derivative of mass quadrupole
-function dotIjk(x::Vector{Float64}, v::Vector{Float64}, m::Float64, j::Int64, k::Int64)
+function dotIjk(x::AbstractVector{Float64}, v::AbstractVector{Float64}, m::Float64, j::Int64, k::Int64)
     return m * (x[k] * v[j] + x[j] * v[k])   # Eq. D.10
 end
 
 # second time derivative of mass quadrupole
-function ddotIjk(x::Vector{Float64}, v::Vector{Float64}, a::Vector{Float64}, m::Float64, j::Int64, k::Int64)
+function ddotIjk(x::AbstractVector{Float64}, v::AbstractVector{Float64}, a::AbstractVector{Float64}, m::Float64, j::Int64, k::Int64)
     return m * (x[k] * a[j] + 2.0 * v[j] * v[k] + x[j] * a[k])   # Eq. D.11
 end
 
 # third time derivative of mass quadrupole
-function dddotIjk(x::Vector{Float64}, v::Vector{Float64}, a::Vector{Float64}, jerk, m::Float64, j::Int64, k::Int64)
+function dddotIjk(x::AbstractVector{Float64}, v::AbstractVector{Float64}, a::AbstractVector{Float64}, jerk, m::Float64, j::Int64, k::Int64)
     return m * (jerk[j] * x[k] + 3.0 * a[j] * v[k] + 3.0 * v[j] * a[k] + x[j] * jerk[k])   # Eq. D.12
 end
 
 # second time derivative of current quadrupole
-function ddotSijk(x::Vector{Float64}, v::Vector{Float64}, a::Vector{Float64}, jerk::Vector{Float64}, m::Float64, i::Int64, j::Int64, k::Int64)
+function ddotSijk(x::AbstractVector{Float64}, v::AbstractVector{Float64}, a::AbstractVector{Float64}, jerk::AbstractVector{Float64}, m::Float64, i::Int64, j::Int64, k::Int64)
     return Ijk(x, m, j, k) * jerk[i] + 2.0 * dotIjk(x, v, m, j, k) * a[i] + v[i] * ddotIjk(x, v, a, m, j, k)   # Eq. D.13
 end
 
 # returns n_{i}\ddot{S}^{ijk}
-function ddotSjk(x::Vector{Float64}, v::Vector{Float64}, a::Vector{Float64}, jerk::Vector{Float64}, nx::Float64, ny::Float64, nz::Float64, m::Float64, j::Int64, k::Int64)
+function ddotSjk(x::AbstractVector{Float64}, v::AbstractVector{Float64}, a::AbstractVector{Float64}, jerk::AbstractVector{Float64}, nx::Float64, ny::Float64, nz::Float64, m::Float64, j::Int64, k::Int64)
     return nx * ddotSijk(x, v, a, jerk, m, 1, j, k) + ny * ddotSijk(x, v, a, jerk, m, 2, j, k) + nz * ddotSijk(x, v, a, jerk, m, 3, j, k)
 end
 
 # second time derivative of mass octupole
-function dddotMijk(x::Vector{Float64}, v::Vector{Float64}, a::Vector{Float64}, jerk::Vector{Float64}, m::Float64, i::Int64, j::Int64, k::Int64)
+function dddotMijk(x::AbstractVector{Float64}, v::AbstractVector{Float64}, a::AbstractVector{Float64}, jerk::AbstractVector{Float64}, m::Float64, i::Int64, j::Int64, k::Int64)
     return jerk[i] * Ijk(x, m, j, k) + 3.0 * dotIjk(x, v, m, j, k) * a[i] + 3.0 * v[i] * ddotIjk(x, v, a, m, j, k) + x[i] * dddotIjk(x, v, a, jerk, m, j, k)   # Eq. D.14
 end
 
 # returns n_{i}\dddot{M}^{ijk}
-function dddotMjk(x::Vector{Float64}, v::Vector{Float64}, a::Vector{Float64}, jerk::Vector{Float64}, nx::Float64, ny::Float64, nz::Float64, m::Float64, j::Int64, k::Int64)
+function dddotMjk(x::AbstractVector{Float64}, v::AbstractVector{Float64}, a::AbstractVector{Float64}, jerk::AbstractVector{Float64}, nx::Float64, ny::Float64, nz::Float64, m::Float64, j::Int64, k::Int64)
     return nx * dddotMijk(x, v, a, jerk, m, 1, j, k) + ny * dddotMijk(x, v, a, jerk, m, 2, j, k) + nz * dddotMijk(x, v, a, jerk, m, 3, j, k)
 end
 
 # compute_metric perturbation
-@views function compute_metric_perturbation!(hij::AbstractArray, h_plus::Vector{Float64}, h_cross::Vector{Float64}, x::AbstractArray, v::AbstractArray, a::AbstractArray, jerk::AbstractArray, m::Float64, Θ::Float64, Φ::Float64, obs_distance::Float64)
+@views function compute_metric_perturbation!(hij::AbstractArray, h_plus::AbstractVector{Float64}, h_cross::AbstractVector{Float64}, x::AbstractArray, v::AbstractArray, a::AbstractArray, jerk::AbstractArray, m::Float64, Θ::Float64, Φ::Float64, obs_distance::Float64)
     nx = sin(Θ) * cos(Φ)   # Eq. D.15
     ny = sin(Θ) * sin(Φ)   # Eq. D.15
     nz = cos(Θ)   # Eq. D.15

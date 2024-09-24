@@ -6,7 +6,7 @@
 
 module FourierFitJuliaBase
 
-# compute Float64 of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
+# compute number of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
 compute_num_fitting_freqs_1(nHarm::Int)::Int = nHarm
 compute_num_fitting_freqs_2(nHarm::Int)::Int = Int((nHarm * (5 + 3 * nHarm) / 2))
 compute_num_fitting_freqs_3(nHarm::Int)::Int = Int( nHarm * (13 + 2 * nHarm * (9 + 4 * nHarm)) / 3)

@@ -12,14 +12,14 @@ using StaticArrays
 using ..PotentialsRR
 
 # define some useful functions
-otimes(a::Vector{Float64}, b::Vector{Float64}) = [a[i] * b[j] for i=1:size(a, 1), j=1:size(b, 1)]    # tensor product of two vectors
-otimes(a::Vector{Float64}) = [a[i] * a[j] for i=1:size(a, 1), j=1:size(a, 1)]    # tensor product of a vector with itself
-dot3d(u::Vector{Float64}, v::Vector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3]
-norm2_3d(u::Vector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3]
-norm_3d(u::Vector{Float64}) = sqrt(norm2_3d(u))
-dot4d(u::Vector{Float64}, v::Vector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3] + u[4] * v[4]
-norm2_4d(u::Vector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3] + u[4] * u[4]
-norm_4d(u::Vector{Float64}) = sqrt(norm2_4d(u))
+otimes(a::AbstractVector{Float64}, b::AbstractVector{Float64}) = [a[i] * b[j] for i=1:size(a, 1), j=1:size(b, 1)]    # tensor product of two vectors
+otimes(a::AbstractVector{Float64}) = [a[i] * a[j] for i=1:size(a, 1), j=1:size(a, 1)]    # tensor product of a vector with itself
+dot3d(u::AbstractVector{Float64}, v::AbstractVector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3]
+norm2_3d(u::AbstractVector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3]
+norm_3d(u::AbstractVector{Float64}) = sqrt(norm2_3d(u))
+dot4d(u::AbstractVector{Float64}, v::AbstractVector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3] + u[4] * v[4]
+norm2_4d(u::AbstractVector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3] + u[4] * u[4]
+norm_4d(u::AbstractVector{Float64}) = sqrt(norm2_4d(u))
 
 ημν = [-1.0 0.0 0.0 0.0; 0.0 1.0 0.0 0.0; 0.0 0.0 1.0 0.0; 0.0 0.0 0.0 1.0]    # minkowski metric
 ηij = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0]    # spatial part of minkowski metric
@@ -112,14 +112,14 @@ function A1_β(t::Float64, xH::AbstractArray, v::Float64, v_H::AbstractArray, vH
     return [i==1 ? A_RR(t, xH, v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂a, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6) : Ai_RR(t, xH, v, v_H, vH, ∂Vrr_∂t, ∂Virr_∂t, ∂Vrr_∂a, ∂Virr_∂a, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, i-1) for i = 1:4]
 end
 
-function B_RR(xH::Vector{Float64}, Qi::Vector{Float64}, ∂K_∂xk::SVector{3, Float64}, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
+function B_RR(xH::AbstractVector{Float64}, Qi::AbstractVector{Float64}, ∂K_∂xk::SVector{3, Float64}, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
     return dot(Qi, ∂K_∂xk)   # Eq. A6
 end
 
-function Bi_RR(xH::Vector{Float64}, Qij::AbstractArray, ∂K_∂xk::SVector{3, Float64}, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
+function Bi_RR(xH::AbstractVector{Float64}, Qij::AbstractArray, ∂K_∂xk::SVector{3, Float64}, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
     return -2.0 * (ηij + Qij) * ∂K_∂xk   # Eq. A9
 end
-function C_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂K_∂xk::SVector{3, Float64}, ∂Ki_∂xk::SMatrix{3, 3, Float64}, Q::Float64, Qi::Vector{Float64}, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
+function C_RR(xH::AbstractVector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂K_∂xk::SVector{3, Float64}, ∂Ki_∂xk::SMatrix{3, 3, Float64}, Q::Float64, Qi::AbstractVector{Float64}, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
     C = 0.0
     @inbounds for i=1:3
         C += 2.0 * (1.0 - Q) * vH[i] * ∂K_∂xk[i]
@@ -130,7 +130,7 @@ function C_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂K_�
     return C
 end
 
-function Ci_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂K_∂xk::SVector{3, Float64}, ∂Ki_∂xk::SMatrix{3, 3, Float64}, Qi::Vector{Float64}, Qij::AbstractArray, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)   # Eq. A10
+function Ci_RR(xH::AbstractVector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂K_∂xk::SVector{3, Float64}, ∂Ki_∂xk::SMatrix{3, 3, Float64}, Qi::AbstractVector{Float64}, Qij::AbstractArray, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)   # Eq. A10
     C = @MVector [0., 0., 0.]
     @inbounds for j=1:3
         @inbounds for i=1:3
@@ -141,7 +141,7 @@ function Ci_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂K_
     return C
 end
 
-function D_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂Ki_∂xk::SMatrix{3, 3, Float64}, ∂Kij_∂xk::SArray{Tuple{3, 3, 3}, Float64, 3, 27}, Q::Float64, Qi::Vector{Float64}, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
+function D_RR(xH::AbstractVector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂Ki_∂xk::SMatrix{3, 3, Float64}, ∂Kij_∂xk::SArray{Tuple{3, 3, 3}, Float64, 3, 27}, Q::Float64, Qi::AbstractVector{Float64}, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)
     D = 0.0
     @inbounds for i=1:3
         @inbounds for j=1:3
@@ -154,7 +154,7 @@ function D_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂Ki_
     return D
 end
 
-function Di_RR(xH::Vector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂Ki_∂xk::SMatrix{3, 3, Float64}, ∂Kij_∂xk::SArray{Tuple{3, 3, 3}, Float64, 3, 27}, Qi::Vector{Float64}, Qij::AbstractArray, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)   # Eq. A11
+function Di_RR(xH::AbstractVector{Float64}, vH::AbstractArray, xBL::AbstractArray, ∂Ki_∂xk::SMatrix{3, 3, Float64}, ∂Kij_∂xk::SArray{Tuple{3, 3, 3}, Float64, 3, 27}, Qi::AbstractVector{Float64}, Qij::AbstractArray, rH::Float64, a::Float64, M::Float64, Γαμν::Function, g_μν::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function)   # Eq. A11
     D = @MVector [0., 0., 0.]
     @inbounds for j=1:3
         @inbounds for k=1:3
@@ -198,8 +198,8 @@ function A2_β(t::Float64, xH::AbstractArray, vH::AbstractArray, xBL::AbstractAr
 end
 
 # compute self-acceleration in harmonic coordinates and transform components back to BL
-function aRRα(aSF_H::Vector{Float64}, aSF_BL::Vector{Float64}, t::Float64, xH::Vector{Float64}, v::Float64, v_H::Vector{Float64}, vH::Vector{Float64},
-    xBL::Vector{Float64}, rH::Float64, a::Float64, M::Float64, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray,
+function aRRα(aSF_H::AbstractVector{Float64}, aSF_BL::AbstractVector{Float64}, t::Float64, xH::AbstractVector{Float64}, v::Float64, v_H::AbstractVector{Float64}, vH::AbstractVector{Float64},
+    xBL::AbstractVector{Float64}, rH::Float64, a::Float64, M::Float64, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray,
     Sij5::AbstractArray, Sij6::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function,
     gThTh::Function, gΦΦ::Function)
 
@@ -213,11 +213,12 @@ using ...SelfAcceleration
 using ...SelfAcceleration
 using ...HarmonicCoords
 using ...EstimateMultipoleDerivs
+using ...MultipoleFDM
 
 # # returns the self-acceleration 4-vector
 # @views function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray,
-#     v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, dr_dt::Vector{Float64}, d2r_dt2::Vector{Float64}, θ::Vector{Float64}, dθ_dt::Vector{Float64},
-#     d2θ_dt2::Vector{Float64}, ϕ::Vector{Float64}, dϕ_dt::Vector{Float64}, d2ϕ_dt2::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
+#     v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::AbstractVector{Float64}, r::AbstractVector{Float64}, dr_dt::AbstractVector{Float64}, d2r_dt2::AbstractVector{Float64}, θ::AbstractVector{Float64}, dθ_dt::AbstractVector{Float64},
+#     d2θ_dt2::AbstractVector{Float64}, ϕ::AbstractVector{Float64}, dϕ_dt::AbstractVector{Float64}, d2ϕ_dt2::AbstractVector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
 #     Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function,
 #     g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, h::Float64)
 #     # convert trajectories to BL coords
@@ -251,11 +252,11 @@ using ...EstimateMultipoleDerivs
 
 # returns the self-acceleration 4-vector
 @views function selfAcc_mino!(a::Float64, M::Float64, E::Float64, L::Float64, C::Float64, aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray,
-    x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, dr_dt::Vector{Float64}, 
-    d2r_dt2::Vector{Float64}, θ::Vector{Float64}, dθ_dt::Vector{Float64}, d2θ_dt2::Vector{Float64}, ϕ::Vector{Float64}, dϕ_dt::Vector{Float64}, d2ϕ_dt2::Vector{Float64}, Mij5::AbstractArray, 
-    Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray,
-    Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function,
-    gΦΦ::Function, m::Float64, compute_at::Int64, h::Float64)
+    x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::AbstractArray, r::AbstractArray, dr_dt::AbstractArray, 
+    d2r_dt2::AbstractArray, θ::AbstractArray, dθ_dt::AbstractArray, d2θ_dt2::AbstractArray, ϕ::AbstractArray, dϕ_dt::AbstractArray, d2ϕ_dt2::AbstractArray, Mij5::AbstractArray, 
+    Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray,
+    Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, 
+    gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, m::Float64, compute_at::Int64, h::Float64)
 
     # convert trajectories to BL coords
     @inbounds for i in eachindex(t)
@@ -275,13 +276,11 @@ using ...EstimateMultipoleDerivs
         a_H[i] = aH[i];
 
     end
-    
-    # calculate Multipoles.ddotMijk, Multipoles.ddotMijk, Multipoles.dotSij "analytically"
-    EstimateMultipoleDerivs.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
 
-    EstimateMultipoleDerivs.FiniteDifferences.moment_derivs_tr_Mino!(h, compute_at, size(t, 1), a, M, E, L, C, xBL[compute_at], sign(dr_dt[compute_at]), sign(dθ_dt[compute_at]), Mij2_data, Mijk2_data, Sij1_data, Mij5, 
-    Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6)
+    # calculate first and second derivative of moments analytically
+    EstimateMultipoleDerivs.analytic_moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
 
+    MultipoleFDM.diff_moments_tr_Mino!(a, E, L, C, M, xBL[compute_at], sign(dr_dt[compute_at]), sign(dθ_dt[compute_at]), Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, size(r, 1), h)
 
     # calculate self force in BL and harmonic coordinates
     SelfAcceleration.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, 
@@ -294,14 +293,16 @@ module FourierFit
 using ...SelfAcceleration
 using ...HarmonicCoords
 using ...EstimateMultipoleDerivs
+using ...MultipoleFitting
 
 # returns the self-acceleration 4-vector
 @views function selfAcc_Mino!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray,
-    v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, λ::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64},
-    θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
-    Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function,
-    g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, m::Float64, compute_at::Int64,
-    nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
+    v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, λ::AbstractVector{Float64}, r::AbstractVector{Float64}, rdot::AbstractVector{Float64}, rddot::AbstractVector{Float64}, θ::AbstractVector{Float64}, θdot::AbstractVector{Float64},
+    θddot::AbstractVector{Float64}, ϕ::AbstractVector{Float64}, ϕdot::AbstractVector{Float64}, ϕddot::AbstractVector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
+    Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray,
+    Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function,
+    gThTh::Function, gΦΦ::Function, a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, nPoints::Int64, n_freqs::Int64,
+    chisq::AbstractVector{Float64}, fit::String)
     
     # convert trajectories to BL coords
     @inbounds for i in eachindex(λ)
@@ -322,20 +323,23 @@ using ...EstimateMultipoleDerivs
 
     end
     
-    # calculate ddotMijk, ddotMijk, dotSij "analytically"
-    EstimateMultipoleDerivs.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_tr_Mino!(a, E, L, C, M, λ, xBL[compute_at], sign(rdot[compute_at]), sign(θdot[compute_at]), Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq, fit)
+    # calculate first and second derivative of moments analytically
+    EstimateMultipoleDerivs.analytic_moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
 
+    MultipoleFitting.fit_moments_tr_Mino!(a, E, L, C, M, λ, xBL[compute_at], sign(rdot[compute_at]), sign(θdot[compute_at]), Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6,
+    compute_at, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq, fit)
+    
     # calculate self force in BL and harmonic coordinates
     SelfAcceleration.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)
 end
+
 # returns the self-acceleration 4-vector
-@views function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, 
-    v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64},
-    θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
-    Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function,
-    g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function, gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, Ωr::Float64,
-    Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
+@views function selfAcc!(aSF_H::AbstractArray, aSF_BL::AbstractArray, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray,
+    v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::AbstractVector{Float64}, r::AbstractVector{Float64}, rdot::AbstractVector{Float64}, rddot::AbstractVector{Float64}, θ::AbstractVector{Float64}, θdot::AbstractVector{Float64},
+    θddot::AbstractVector{Float64}, ϕ::AbstractVector{Float64}, ϕdot::AbstractVector{Float64}, ϕddot::AbstractVector{Float64}, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray,
+    Mijk8::AbstractArray,Sij5::AbstractArray, Sij6::AbstractArray, Mij2_data::AbstractArray, Mijk2_data::AbstractArray,
+    Sij1_data::AbstractArray, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function, gRR::Function,
+    gThTh::Function, gΦΦ::Function, a::Float64, M::Float64, m::Float64, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::AbstractVector{Float64}, fit::String)
     
     # convert trajectories to BL coords
     @inbounds for i in eachindex(t)
@@ -356,9 +360,10 @@ end
 
     end
     
-    # calculate ddotMijk, ddotMijk, dotSij "analytically"
-    EstimateMultipoleDerivs.moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_tr!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit)
+    # calculate first and second derivative of moments analytically
+    EstimateMultipoleDerivs.analytic_moments_tr!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Sij1_data)
+    # estimate higher order derivative moments
+    MultipoleFitting.fit_moments_tr_BL!(t, Mij2_data, Mijk2_data, Sij1_data, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit)
 
     # calculate self force in BL and harmonic coordinates
     SelfAcceleration.aRRα(aSF_H, aSF_BL, 0.0, xH[compute_at], v[compute_at], v_H[compute_at], vH[compute_at], xBL[compute_at], rH[compute_at], a, M, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ)

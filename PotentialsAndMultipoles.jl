@@ -15,7 +15,7 @@ using ..Deriv2, ..Deriv3, ..Deriv4, ..Deriv5, ..Deriv6
 using ..ParameterizedDerivs, ..MinoTimeDerivs
 import ..HarmonicCoords: g_tt_H, g_tr_H, g_rr_H, g_μν_H, gTT_H, gTR_H, gRR_H, gμν_H
 using ..HarmonicCoords
-using ..ConstructSymmetricArrays
+using ..SymmetricTensors
 using JLD2
 using FileIO
 using ..AnalyticCoordinateDerivs
@@ -25,12 +25,12 @@ using ..AnalyticMultipoleDerivs
 otimes4d(a::Float64, b::Vector) = [a^2 a*b[1] a*b[2] a*b[3]; a*b[1] b[1]*b[1] b[1]*b[2] b[1]*b[3]; a*b[2] b[2]*b[1] b[2]*b[2] b[2]*b[3]; a*b[3] b[3]*b[1] b[3]*b[2] b[3]*b[3]]    # tensor product of two vectors
 otimes(a::Vector, b::Vector) = [a[i] * b[j] for i=1:size(a, 1), j=1:size(b, 1)]    # tensor product of two vectors
 otimes(a::Vector) = [a[i] * a[j] for i=1:size(a, 1), j=1:size(a, 1)]    # tensor product of a vector with itself
-dot3d(u::Vector{Float64}, v::Vector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3]
-norm2_3d(u::Vector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3]
-norm_3d(u::Vector{Float64}) = sqrt(norm2_3d(u))
-dot4d(u::Vector{Float64}, v::Vector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3] + u[4] * v[4]
-norm2_4d(u::Vector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3] + u[4] * u[4]
-norm_4d(u::Vector{Float64}) = sqrt(norm2_4d(u))
+dot3d(u::AbstractVector{Float64}, v::AbstractVector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3]
+norm2_3d(u::AbstractVector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3]
+norm_3d(u::AbstractVector{Float64}) = sqrt(norm2_3d(u))
+dot4d(u::AbstractVector{Float64}, v::AbstractVector{Float64}) = u[1] * v[1] + u[2] * v[2] + u[3] * v[3] + u[4] * v[4]
+norm2_4d(u::AbstractVector{Float64}) = u[1] * u[1] + u[2] * u[2] + u[3] * u[3] + u[4] * u[4]
+norm_4d(u::AbstractVector{Float64}) = sqrt(norm2_4d(u))
 
 const ημν::Matrix{Float64} = [-1.0 0.0 0.0 0.0; 0.0 1.0 0.0 0.0; 0.0 0.0 1.0 0.0; 0.0 0.0 0.0 1.0]    # minkowski metric
 const ηij::Matrix{Float64} = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0]    # spatial part of minkowski metric

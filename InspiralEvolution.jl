@@ -18,7 +18,7 @@ using ....BLTimeEvolution
 using ....FourierFitGSL
 using ....CircularNonEquatorial
 using ....HarmonicCoords
-using ....ConstructSymmetricArrays
+using ....SymmetricTensors
 using ....SelfAcceleration
 using ....EstimateMultipoleDerivs
 using ....EvolveConstants
@@ -26,6 +26,7 @@ using ....Waveform
 using JLD2
 using FileIO
 using ...InspiralEvolution
+using .....MultipoleFitting
 
 #=
     This comment explains the methodology in the function below. At the end of each piecewise geodesic, we must compute the self-force in order to update the orbital 
@@ -33,8 +34,8 @@ using ...InspiralEvolution
     to a fourier series expanded in terms of the fundamental frequencies, and then take high-order derivates from a simple formula. Empirically, this fit
     is ``best'' at the middle of the data set (e.g., it tends to be worse at the edges, which is common in interpolation methods, for example). As a result,
     we would like the point at which we wish to compute the high-order derivatives (and the self-force) to be at the midpoint of the data array. Suppose we
-    want to compute the self force at t=T. Then, we evolve the geodesic past t=T into the future, using an odd Float64 of points, and then perform the fit
-    to data for a time range which lies an odd Float64 of points in the future and past of t=T, so that t=T is exactly at the midpoint of the data arrays. Note
+    want to compute the self force at t=T. Then, we evolve the geodesic past t=T into the future, using an odd number of points, and then perform the fit
+    to data for a time range which lies an odd number of points in the future and past of t=T, so that t=T is exactly at the midpoint of the data arrays. Note
     we will discard of the data for t>T since it was only computed as an auxiliary for the fitting process.
 =#
 
@@ -79,11 +80,11 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     Sijk1_data= [Float64[] for i=1:3, j=1:3, k=1:3]
 
     # "temporary" mulitpole arrays which contain the multipole data for a given piecewise geodesic
-    Mij2_wf_temp = [Float64[] for i=1:3, j=1:3];
-    Mijk3_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3];
-    Mijkl4_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3, l=1:3];
-    Sij2_wf_temp = [Float64[] for i=1:3, j=1:3];
-    Sijk3_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3];
+    Mij2_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3];
+    Mijk3_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3, k=1:3];
+    Mijkl4_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3, k=1:3, l=1:3];
+    Sij2_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3];
+    Sijk3_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3, k=1:3];
 
     # arrays for self-force computation
     Mij5 = zeros(3, 3)
@@ -97,7 +98,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     aSF_BL_temp = zeros(4)
     aSF_H_temp = zeros(4)
 
-    # compute Float64 of fitting frequencies used in fits to the fourier series expansion of the multipole moments
+    # compute number of fitting frequencies used in fits to the fourier series expansion of the multipole moments
     if e == 0.0 && θi == π/2   # circular equatorial
         n_freqs=FourierFitGSL.compute_num_fitting_freqs_1(nHarm);
     elseif e != 0.0 && θi != π/2   # generic case
@@ -190,13 +191,13 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         Ω=ω[1:3]/ω[4]; 
         Ωr, Ωθ, Ωϕ = Ω;   # BL time frequencies
 
-        # compute waveform
+        # # compute waveform
         EstimateMultipoleDerivs.FourierFit.compute_waveform_moments_and_derivs!(a, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, 
             tt, rr, r_dot, r_ddot, θθ, θ_dot, θ_ddot, ϕϕ, ϕ_dot, ϕ_ddot, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp,
             Sij2_wf_temp, Sijk3_wf_temp, nHarm, Ωr, Ωθ, Ωϕ, nPointsGeodesic, n_freqs, chisq, fit)
 
         # store multipole data for waveforms — we only save the independent components
-        @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
             if length(indices)==2
                 i1, i2 = indices
                 append!(Mij2_wf[i1, i2], Mij2_data[i1, i2])
@@ -227,7 +228,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
             T_Fit = fit_time_range_factor * minimum(@. 2π/Ω)
         end
 
-        saveat_fit = T_Fit / (nPointsFit-1);    # the user specifies the Float64 of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
+        saveat_fit = T_Fit / (nPointsFit-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
         Δti_fit = saveat_fit;
         # compute geodesic into future and past of the final point in the (physical) piecewise geodesic computed above
         midpoint_ics = @SArray [last(psi), last(chi), last(ϕϕ)];
@@ -247,10 +248,10 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
             break
         end
 
-        # compute self-force at end of physical geodesic
-        SelfAcceleration.FourierFit.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL_fit, vBL_fit, aBL_fit, xH_fit, x_H_fit, rH_fit, vH_fit, v_H_fit, aH_fit, a_H_fit, v_fit, tt_fit, rr_fit, r_dot_fit,
-            r_ddot_fit, θθ_fit, θ_dot_fit, θ_ddot_fit, ϕϕ_fit, ϕ_dot_fit, ϕ_ddot_fit, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, Mij2_data, Mijk2_data, Sij1_data,
-            Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPointsFit, n_freqs, chisq, fit);
+        # compute multipole moments and self-acceleration
+        SelfAcceleration.FourierFit.selfAcc!(aSF_H_temp, aSF_BL_temp, xBL_fit, vBL_fit, aBL_fit, xH_fit, x_H_fit, rH_fit, vH_fit, v_H_fit, aH_fit, a_H_fit, v_fit, tt_fit, rr_fit, r_dot_fit, 
+        r_ddot_fit, θθ_fit, θ_dot_fit, θ_ddot_fit, ϕϕ_fit, ϕ_dot_fit, ϕ_ddot_fit, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6,
+            Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, M, m, compute_at, nHarm, Ωr, Ωθ, Ωϕ, nPointsFit, n_freqs, chisq, fit)
 
         # evolve orbital parameters using self-force
         EvolveConstants.Evolve_BL(compute_SF, a, last(tt), last(rr), last(θθ), last(ϕϕ), last(Γ), last(r_dot), last(θ_dot), last(ϕ_dot),
@@ -342,16 +343,16 @@ function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float
     return t_Fluxes, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin
 end
 
-function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
+function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::AbstractVector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
     nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
     # load waveform multipole moments
     waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_BL_fourier_"*fit*"_fit.jld2"
     waveform_data = load(waveform_filename)["data"]
-    Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
-    Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
-    Mijkl4 = waveform_data["Mijkl4"]; ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
-    Sij2 = waveform_data["Sij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    Sijk3 = waveform_data["Sijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+    Mij2 = waveform_data["Mij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij2);
+    Mijk3 = waveform_data["Mijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3);
+    Mijkl4 = waveform_data["Mijkl4"]; SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
+    Sij2 = waveform_data["Sij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    Sijk3 = waveform_data["Sijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
 
     # compute h_{ij} tensor
     num_points = length(t);
@@ -401,19 +402,27 @@ import ....HarmonicCoords: g_tt_H, g_tr_H, g_rr_H, g_μν_H, gTT_H, gTR_H, gRR_H
 using ....HarmonicCoords
 using ....SelfAcceleration
 using ....EstimateMultipoleDerivs
-using ....ConstructSymmetricArrays
+using ....SymmetricTensors
 using ....EvolveConstants
 using ....Waveform
 using JLD2
 using FileIO
 using ...InspiralEvolution
+using ....MultipoleFitting
 
 
-function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_range_factor::Float64, nPointsGeodesic::Int64, nPointsFit::Int64, M::Float64, m::Float64, a::Float64, p::Float64,
+function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_range_factor::Float64, nPointsFit::Int64, M::Float64, m::Float64, a::Float64, p::Float64,
     e::Float64, θi::Float64,  fit::String, Γαμν::Function, g_μν::Function, g_tt::Function, g_tϕ::Function, g_rr::Function, g_θθ::Function, g_ϕϕ::Function, gTT::Function, gTΦ::Function,
-    gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, reltol::Float64=1e-14, abstol::Float64=1e-14; data_path::String="Data/")
+    gRR::Function, gThTh::Function, gΦΦ::Function, nHarm::Int64, FDM::Bool, reltol::Float64=1e-14, abstol::Float64=1e-14; h::Float64 = 0.001, nPointsGeodesic::Int64 = 500, data_path::String="Data/")
     if iseven(nPointsFit)
         throw(DomainError(nPointsFit, "nPointsFit must be odd"))
+    end
+
+    if FDM
+        nPointsGeodesic = floor(Int, compute_SF / h) + 1
+        save_at_trajectory = h; Δλi=h/10;    # initial time step for geodesic integration
+    else
+        save_at_trajectory = compute_SF / (nPointsGeodesic - 1); Δλi=save_at_trajectory/10;    # initial time step for geodesic integration
     end
 
     # create arrays for trajectory
@@ -449,11 +458,11 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     Sijk1_data= [Float64[] for i=1:3, j=1:3, k=1:3]
 
     # "temporary" mulitpole arrays which contain the multipole data for a given piecewise geodesic
-    Mij2_wf_temp = [Float64[] for i=1:3, j=1:3];
-    Mijk3_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3];
-    Mijkl4_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3, l=1:3];
-    Sij2_wf_temp = [Float64[] for i=1:3, j=1:3];
-    Sijk3_wf_temp = [Float64[] for i=1:3, j=1:3, k=1:3];
+    Mij2_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3];
+    Mijk3_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3, k=1:3];
+    Mijkl4_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3, k=1:3, l=1:3];
+    Sij2_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3];
+    Sijk3_wf_temp = [zeros(nPointsGeodesic) for i=1:3, j=1:3, k=1:3];
 
     # arrays for self-force computation
     Mij5 = zeros(3, 3)
@@ -467,7 +476,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     aSF_BL_temp = zeros(4)
     aSF_H_temp = zeros(4)
 
-    # compute Float64 of fitting frequencies used in fits to the fourier series expansion of the multipole moments
+    # compute number of fitting frequencies used in fits to the fourier series expansion of the multipole moments
     if e == 0.0 && θi == π/2   # circular equatorial
         n_freqs=FourierFitGSL.compute_num_fitting_freqs_1(nHarm);
     elseif e != 0.0 && θi != π/2   # generic case
@@ -505,7 +514,6 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
     rLSO = InspiralEvolution.LSO_p(a, M)
 
     use_custom_ics = true; use_specified_params = true;
-    save_at_trajectory = compute_SF / (nPointsGeodesic - 1); Δλi=save_at_trajectory;    # initial time step for geodesic integration
 
     # in the code, we will want to compute the geodesic with an additional time step at the end so that these coordinate values can be used as initial conditions for the
     # subsequent geodesic
@@ -536,7 +544,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         λλ = λλ .+ λ0   # λλ from the above function call starts from zero 
 
         # check that geodesic output is as expected
-        if (length(λλ) != num_points_geodesic) || !isapprox(λλ[nPointsGeodesic], λ0 + compute_SF)
+        if (length(λλ) != num_points_geodesic) || !isapprox(λλ[nPointsGeodesic], λ0 + compute_SF, rtol=1e-3)
             println("Integration terminated at t = $(last(t))")
             println("total_num_points - len(sol) = $(num_points_geodesic-length(λλ))")
             println("λλ[nPointsGeodesic] = $(λλ[nPointsGeodesic])")
@@ -562,14 +570,18 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         ω = Kerr.ConstantsOfMotion.KerrFreqs(a, p_t, e_t, θmin_t, E_t, L_t, Q_t, C_t, rplus, rminus, M);    # Mino time frequencies
         ωr=ω[1]; ωθ=ω[2]; ωϕ=ω[3];   # mino time frequencies
 
-        # compute waveform
-        EstimateMultipoleDerivs.FourierFit.compute_waveform_moments_and_derivs_Mino!(a, E_t, L_t, C_t, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, 
-        λλ, rr, r_dot, r_ddot, θθ, θ_dot, θ_ddot, ϕϕ, ϕ_dot, ϕ_ddot, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp,
-        Sij2_wf_temp, Sijk3_wf_temp, nHarm, ωr, ωθ, ωϕ, nPointsGeodesic, n_freqs, chisq, fit)
-        
+        if FDM
+            @views EstimateMultipoleDerivs.FiniteDifferences.compute_waveform_moments_and_derivs_Mino!(a, E_t, L_t, C_t, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, tt, rr,
+            r_dot, r_ddot, θθ, θ_dot, θ_ddot, ϕϕ, ϕ_dot, ϕ_ddot, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp, Sij2_wf_temp, Sijk3_wf_temp, nPointsGeodesic, h)
+        else
+            EstimateMultipoleDerivs.FourierFit.compute_waveform_moments_and_derivs_Mino!(a, E_t, L_t, C_t, m, M, xBL_wf, vBL_wf, aBL_wf, xH_wf, x_H_wf, rH_wf, vH_wf, v_H_wf, aH_wf, a_H_wf, v_wf, 
+            λλ, rr, r_dot, r_ddot, θθ, θ_dot, θ_ddot, ϕϕ, ϕ_dot, ϕ_ddot, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp,
+            Sij2_wf_temp, Sijk3_wf_temp, nHarm, ωr, ωθ, ωϕ, nPointsGeodesic, n_freqs, chisq, fit)
+        end
+
 
         # store multipole data for waveforms — note that we only save the independent components
-        @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
             if length(indices)==2
                 i1, i2 = indices
                 append!(Mij2_wf[i1, i2], Mij2_data[i1, i2])
@@ -599,7 +611,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
             T_Fit = fit_time_range_factor * minimum(@. 2π/ω[1:3])
         end
 
-        saveat_fit = T_Fit / (nPointsFit-1);    # the user specifies the Float64 of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
+        saveat_fit = T_Fit / (nPointsFit-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
         Δλi_fit = saveat_fit;
         # compute geodesic into future and past of the final point in the (physical) piecewise geodesic computed above
         midpoint_ics = @SArray [last(tt), last(psi), last(chi), last(ϕϕ)];
@@ -619,10 +631,15 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, fit_time_ra
         end
 
         chisq=[0.0];
-        SelfAcceleration.FourierFit.selfAcc_Mino!(aSF_H_temp, aSF_BL_temp, xBL_fit, vBL_fit, aBL_fit, xH_fit, x_H_fit, rH_fit, vH_fit, v_H_fit, aH_fit, a_H_fit, v_fit, λλ_fit, 
+        # SelfAcceleration.FourierFit.selfAcc_Mino!(aSF_H_temp, aSF_BL_temp, xBL_fit, vBL_fit, aBL_fit, xH_fit, x_H_fit, rH_fit, vH_fit, v_H_fit, aH_fit, a_H_fit, v_fit, λλ_fit, 
+        #     rr_fit, r_dot_fit, r_ddot_fit, θθ_fit, θ_dot_fit, θ_ddot_fit, ϕϕ_fit, ϕ_dot_fit, ϕ_ddot_fit, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6,
+        #     Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, E_t, L_t, C_t, M, m, compute_at, nHarm,
+        #     ωr, ωθ, ωϕ, nPointsFit, n_freqs, chisq, fit);
+
+        SelfAcceleration.FourierFit.selfAcc_Mino!(aSF_H_temp, aSF_BL_temp, xBL_fit, vBL_fit, aBL_fit, xH_fit, x_H_fit, rH_fit, vH_fit, v_H_fit, aH_fit, a_H_fit, v_fit, λλ_fit,
             rr_fit, r_dot_fit, r_ddot_fit, θθ_fit, θ_dot_fit, θ_ddot_fit, ϕϕ_fit, ϕ_dot_fit, ϕ_ddot_fit, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6,
-            Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, E_t, L_t, C_t, M, m, compute_at, nHarm,
-            ωr, ωθ, ωϕ, nPointsFit, n_freqs, chisq, fit);
+            Mij2_data, Mijk2_data, Sij1_data, Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, a, E_t, L_t, C_t, M, m,
+            compute_at, nHarm, ωr, ωθ, ωϕ, nPointsFit, n_freqs, chisq, fit)
         
         Δt = last(tt) - tt[1]
         EvolveConstants.Evolve_BL(Δt, a, last(tt), last(rr), last(θθ), last(ϕϕ), last(Γ), last(r_dot), last(θ_dot), last(ϕ_dot),
@@ -714,16 +731,16 @@ function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float
     return t_Fluxes, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin
 end
 
-function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
+function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::AbstractVector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
     nHarm::Int64, nPointsFit::Int64, reltol::Float64, fit_time_range_factor::Float64, fit::String, data_path::String)
     # load waveform multipole moments
     waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_nHarm_$(nHarm)_n_fit_$(nPointsFit)_fit_range_factor_$(fit_time_range_factor)_Mino_fourier_"*fit*"_fit.jld2"
     waveform_data = load(waveform_filename)["data"]
-    Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
-    Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
-    Mijkl4 = waveform_data["Mijkl4"]; ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
-    Sij2 = waveform_data["Sij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    Sijk3 = waveform_data["Sijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+    Mij2 = waveform_data["Mij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij2);
+    Mijk3 = waveform_data["Mijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3);
+    Mijkl4 = waveform_data["Mijkl4"]; SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
+    Sij2 = waveform_data["Sij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    Sijk3 = waveform_data["Sijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
 
     # compute h_{ij} tensor
     num_points = length(t);
@@ -778,7 +795,7 @@ using ....HarmonicCoords
 using ....SelfAcceleration
 using ....EstimateMultipoleDerivs
 using ....SelfAcceleration
-using ....ConstructSymmetricArrays
+using ....SymmetricTensors
 using ....EvolveConstants
 using ....Waveform
 using JLD2
@@ -866,7 +883,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float
 
         # to compute the self force at a point, we must overshoot the solution into the future
         tF = t0 + (nPointsGeodesic-1) * h + (stencil_array_length÷2) * h   # evolve geodesic up to tF
-        total_num_points = nPointsGeodesic+(stencil_array_length÷2)   # total Float64 of points in geodesic since we overshoot
+        total_num_points = nPointsGeodesic+(stencil_array_length÷2)   # total number of points in geodesic since we overshoot
         Δti=h;    # initial time step for geodesic integration
 
         saveat_t = t0:h:tF |> collect    # saveat time array for solver
@@ -982,7 +999,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float
         writedlm(io, aSF_BL)
     end
 
-    # Float64 of data points
+    # number of data points
     n_OrbPoints = size(r, 1)
 
     # save trajectory
@@ -1028,7 +1045,7 @@ using ....HarmonicCoords
 using ....SelfAcceleration
 using ....EstimateMultipoleDerivs
 using ....SelfAcceleration
-using ....ConstructSymmetricArrays
+using ....SymmetricTensors
 using ....EvolveConstants
 using ....Waveform
 using JLD2
@@ -1050,7 +1067,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float
     Sijk3_wf = [Float64[] for i=1:3, j=1:3, k=1:3];
 
     # length of arrays for trajectory: we fit into the "past" and "future", so the arrays will have an odd size (see later code)
-    stencil_array_length = 11;   # set by Float64 of points in FDM stencil
+    stencil_array_length = 11;   # set by number of points in FDM stencil
     
     # initialize data arrays
     aSF_BL = Vector{Vector{Float64}}()
@@ -1177,7 +1194,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, nPointsGeodesic::Int64, M::Float
             θ_ddot, ϕϕ, ϕ_dot, ϕ_ddot, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3_wf_temp, Mijkl4_wf_temp, Sij2_wf_temp, Sijk3_wf_temp, nPointsGeodesic, h)
         
         # store multipole data for waveforms — note that we only save the independent components
-        @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
             if length(indices)==2
                 i1, i2 = indices
                 append!(Mij2_wf[i1, i2], Mij2_data[i1, i2])
@@ -1312,16 +1329,16 @@ function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float
     return t_Fluxes, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin
 end
 
-function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
+function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::AbstractVector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
     h::Float64, reltol::Float64, data_path::String)
     # load waveform multipole moments
     waveform_filename=data_path *  "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_h_$(h)_tol_$(reltol)_mino_fdm.jld2"
     waveform_data = load(waveform_filename)["data"]
-    Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
-    Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
-    Mijkl4 = waveform_data["Mijkl4"]; ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
-    Sij2 = waveform_data["Sij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    Sijk3 = waveform_data["Sijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+    Mij2 = waveform_data["Mij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij2);
+    Mijk3 = waveform_data["Mijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3);
+    Mijkl4 = waveform_data["Mijkl4"]; SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
+    Sij2 = waveform_data["Sij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    Sijk3 = waveform_data["Sijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
 
     # compute h_{ij} tensor
     num_points = length(t);
@@ -1369,7 +1386,7 @@ using ....Kerr
 using ....BLTimeEvolution
 using ....CircularNonEquatorial
 using ....HarmonicCoords
-using ....ConstructSymmetricArrays
+using ....SymmetricTensors
 using ....SelfAcceleration
 using ....EstimateMultipoleDerivs
 using ....EvolveConstants
@@ -1531,7 +1548,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, nPointsGeod
         # Mijkl4_wf_temp, Sij2_wf_temp, Sijk3_wf_temp, a, m, M, E_t, L_t, C_t)
 
         # store multipole data for waveforms — note that we only save the independent components
-        @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
             if length(indices)==2
                 i1, i2 = indices
                 append!(Mij2_wf[i1, i2], Mij2_data[i1, i2])
@@ -1649,16 +1666,16 @@ function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float
     return t_Fluxes, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin
 end
 
-function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
+function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::AbstractVector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
     reltol::Float64, data_path::String)
     # load waveform multipole moments
     waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_Analytic_BL.jld2"
     waveform_data = load(waveform_filename)["data"]
-    Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
-    Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
-    Mijkl4 = waveform_data["Mijkl4"]; ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
-    Sij2 = waveform_data["Sij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    Sijk3 = waveform_data["Sijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+    Mij2 = waveform_data["Mij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij2);
+    Mijk3 = waveform_data["Mijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3);
+    Mijkl4 = waveform_data["Mijkl4"]; SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
+    Sij2 = waveform_data["Sij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    Sijk3 = waveform_data["Sijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
 
     # compute h_{ij} tensor
     num_points = length(t);
@@ -1708,7 +1725,7 @@ import ....HarmonicCoords: g_tt_H, g_tr_H, g_rr_H, g_μν_H, gTT_H, gTR_H, gRR_H
 using ....HarmonicCoords
 using ....SelfAcceleration
 using ....EstimateMultipoleDerivs
-using ....ConstructSymmetricArrays
+using ....SymmetricTensors
 using ....EvolveConstants
 using ....Waveform
 using ....HarmonicCoordDerivs
@@ -1870,7 +1887,7 @@ function compute_inspiral_HJE!(tOrbit::Float64, compute_SF::Float64, nPointsGeod
         # Mijkl4_wf_temp, Sij2_wf_temp, Sijk3_wf_temp, a, m, M, E_t, L_t, C_t)
 
         # store multipole data for waveforms — note that we only save the independent components
-        @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
             if length(indices)==2
                 i1, i2 = indices
                 append!(Mij2_wf[i1, i2], Mij2_data[i1, i2])
@@ -1989,16 +2006,16 @@ function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θi::Float
     return t_Fluxes, EE, Edot, LL, Ldot, QQ, Qdot, CC, Cdot, pArray, ecc, θmin
 end
 
-function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::Vector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
+function compute_waveform(obs_distance::Float64, Θ::Float64, Φ::Float64, t::AbstractVector{Float64}, a::Float64, p::Float64, e::Float64, θi::Float64, q::Float64, 
     reltol::Float64, data_path::String)
     # load waveform multipole moments
     waveform_filename=data_path * "Waveform_moments_a_$(a)_p_$(p)_e_$(e)_θi_$(round(θi; digits=3))_q_$(q)_tol_$(reltol)_Analytic_Mino.jld2"
     waveform_data = load(waveform_filename)["data"]
-    Mij2 = waveform_data["Mij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij2);
-    Mijk3 = waveform_data["Mijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3);
-    Mijkl4 = waveform_data["Mijkl4"]; ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
-    Sij2 = waveform_data["Sij2"]; ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    Sijk3 = waveform_data["Sijk3"]; ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
+    Mij2 = waveform_data["Mij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij2);
+    Mijk3 = waveform_data["Mijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3);
+    Mijkl4 = waveform_data["Mijkl4"]; SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
+    Sij2 = waveform_data["Sij2"]; SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    Sijk3 = waveform_data["Sijk3"]; SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
 
     # compute h_{ij} tensor
     num_points = length(t);

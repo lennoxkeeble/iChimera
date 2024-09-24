@@ -282,7 +282,7 @@ function compute_resonance_time(a::Float64, e::Float64, ι::Float64, l::Int64, m
     compute_fluxes_BL = compute_SF_frac * minimum(@. 2π /Ωi);   # in units of M (not seconds)
     compute_fluxes_Mino = compute_SF_frac * minimum(@. 2π /ωi[1:3]);   # in units of M (not seconds)
 
-    ## Float64 of points in Finite Difference geodesic ##
+    ## number of points in Finite Difference geodesic ##
     if isequal(h, NaN)
         nothing
     else

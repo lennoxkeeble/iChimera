@@ -20,7 +20,7 @@ using ..HarmonicCoords
 using ..EstimateMultipoleDerivs
 using ..SelfAcceleration
 using ..EvolveConstants
-using ..ConstructSymmetricArrays
+using ..SymmetricTensors
 using JLD2
 using FileIO
 
@@ -159,11 +159,11 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
             T_Fit = t_range_factor * minimum(@. 2π/ω[1:3])
         end
 
-        saveat = T_Fit / (nPoints-1);    # the user specifies the Float64 of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
+        saveat = T_Fit / (nPoints-1);    # the user specifies the number of points in each fit, i.e., the resolution, which determines at which points the interpolator should save data points
 
         # to compute the self force at a point, we must overshoot the solution into the future
         λF = λ0 + (nPoints-1) * saveat + (nPoints÷2) * saveat   # evolve geodesic up to λF
-        total_num_points = nPoints+(nPoints÷2)   # total Float64 of points in geodesic since we overshoot
+        total_num_points = nPoints+(nPoints÷2)   # total number of points in geodesic since we overshoot
         Δλi=saveat/10;    # initial time step for geodesic integration
 
         saveat_λ = range(λ0, λF, total_num_points) |> collect
@@ -258,7 +258,7 @@ function compute_inspiral!(t_range_factor::Float64, tOrbit::Float64, nPoints::In
         append!(ϕ, ϕϕ[1:nPoints]); append!(dϕ_dt, ϕ_dot[1:nPoints]); append!(d2ϕ_dt2, ϕ_ddot[1:nPoints]);
         
         # store multipole data for waveforms — note that we only save the independent components
-        @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+        @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
             if length(indices)==2
                 i1, i2 = indices
                 append!(Mij2_wf[i1, i2], Mij2_data[i1, i2])

@@ -77,12 +77,42 @@ function moments_wf!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v
     end
 end
 
+# fill pre-allocated arrays with the appropriate derivatives of the mass and current moments for waveform computation
+function analytic_moments_tr!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v_H::AbstractArray, xH::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, Mij2::AbstractArray, Mijk2::AbstractArray, Sij1::AbstractArray)
+    @inbounds for i=1:3
+        for j=1:3
+            Mij2[i, j] = Multipoles.ddotMij.(a_H, v_H, x_H, m, M, i, j)
+            Sij1[i, j] = Multipoles.dotSij.(aH, v_H, vH, x_H, xH, m, M, i, j)
+            @inbounds for k=1:3
+                Mijk2[i, j, k] = Multipoles.ddotMijk.(a_H, v_H, x_H, m, M, i, j, k)
+            end
+        end
+    end
+end
+
+# fill pre-allocated arrays with the appropriate derivatives of the mass and current moments for waveform computation
+function analytic_moments!(aH::AbstractArray, a_H::AbstractArray, vH::AbstractArray, v_H::AbstractArray, xH::AbstractArray, x_H::AbstractArray, m::Float64, M::Float64, Mij2::AbstractArray, Mijk2::AbstractArray, Mijkl2::AbstractArray, Sij1::AbstractArray, Sijk1::AbstractArray)
+    @inbounds for i=1:3
+        for j=1:3
+            Mij2[i, j] = Multipoles.ddotMij.(a_H, v_H, x_H, m, M, i, j)
+            Sij1[i, j] = Multipoles.dotSij.(aH, v_H, vH, x_H, xH, m, M, i, j)
+            @inbounds for k=1:3
+                Mijk2[i, j, k] = Multipoles.ddotMijk.(a_H, v_H, x_H, m, M, i, j, k)
+                Sijk1[i, j, k] = Multipoles.dotSijk.(a_H, v_H, x_H, m, M, i, j, k)
+                @inbounds for l=1:3
+                    Mijkl2[i, j, k, l] = Multipoles.ddotMijkl.(a_H, v_H, x_H, m, M, i, j, k, l)
+                end
+            end
+        end
+    end
+end
+
 module FiniteDifferences
 using ..EstimateMultipoleDerivs
 using ...MinoTimeDerivs, ...MinoDerivs1, ...MinoDerivs2, ...MinoDerivs3, ...MinoDerivs4, ...MinoDerivs5, ...MinoDerivs6
 using ...HarmonicCoords
 using ...ParameterizedDerivs
-using ...ConstructSymmetricArrays
+using ...SymmetricTensors
 using ...FiniteDiff_5
 
 # calculate time derivatives of the mass and current moments for trajectory evolution in BL time, i.e., to compute self-force
@@ -135,7 +165,7 @@ function moment_derivs_tr_Mino!(h::Float64, compute_at::Int64, nPoints::Int64, a
     d5λ_dt = MinoTimeDerivs.d5λ_dt(dt_dλ, d2t_dλ, d3t_dλ, d4t_dλ, d5t_dλ)
     d6λ_dt = MinoTimeDerivs.d6λ_dt(dt_dλ, d2t_dλ, d3t_dλ, d4t_dλ, d5t_dλ, d6t_dλ)
 
-    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.traj_indices
+    @inbounds Threads.@threads for indices in SymmetricTensors.traj_indices
         if length(indices)==2
             i, j = indices
             # the naming is a bit confusing in the code block below. For example take f(t) = Mij2 = d2Mij_dt2. We now wish to compute higher order derivatives of f(t) from the re-parameterized function 
@@ -180,10 +210,10 @@ function moment_derivs_tr_Mino!(h::Float64, compute_at::Int64, nPoints::Int64, a
     end
 
     # symmetrize moments
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij6);
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij7); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij8);
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij6);
-    ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk7); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk8);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij5); SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij6);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij7); SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij8);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij5); SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij6);
+    SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk7); SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk8);
 end
 
 function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, x::AbstractArray, dr::AbstractArray, dθ::AbstractArray, 
@@ -197,7 +227,7 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
     dλ_dt = zeros(nPoints)
     d2λ_dt = zeros(nPoints)
 
-    for i in eachindex(x)
+    @inbounds for i in eachindex(x)
         # compute derivatives of coordinates wrt to lambda
         dx[i] = [MinoDerivs1.dr_dλ(x[i], a, M, E, L, C) * sign(dr[i]), MinoDerivs1.dθ_dλ(x[i], a, M, E, L, C) * sign(dθ[i]), MinoDerivs1.dϕ_dλ(x[i], a, M, E, L, C)]
         d2x[i] = [MinoDerivs2.d2r_dλ(x[i], dx[i], a, M, E, L, C), MinoDerivs2.d2θ_dλ(x[i], dx[i], a, M, E, L, C), MinoDerivs2.d2ϕ_dλ(x[i], dx[i], a, M, E, L, C)]
@@ -211,8 +241,8 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
         d2λ_dt[i] = MinoTimeDerivs.d2λ_dt(dt_dλ[i], d2t_dλ[i])
     end
 
-    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
-        for compute_at in 1:nPoints
+    @inbounds Threads.@threads for compute_at in 1:nPoints
+        @inbounds for indices in SymmetricTensors.waveform_indices
             if length(indices)==2
                 i, j = indices
                 # current quadrupole
@@ -236,17 +266,17 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
         end
     end
 
-    # # symmetrize moments
-    # ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    # ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
-    # ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
+    # symmetrize moments
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3); SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
+    SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
 end
 
 
 function compute_waveform_moments_and_derivs_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, 
     xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, 
-    t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64},
-    ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, 
+    t::AbstractArray, r::AbstractArray, rdot::AbstractArray, rddot::AbstractArray, θ::AbstractArray, θdot::AbstractArray, θddot::AbstractArray, ϕ::AbstractArray,
+    ϕdot::AbstractArray, ϕddot::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, 
     Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nPoints::Int64, h::Float64)
 
     # convert trajectories to BL coords
@@ -268,7 +298,7 @@ function compute_waveform_moments_and_derivs_Mino!(a::Float64, E::Float64, L::Fl
 
     end
 
-    EstimateMultipoleDerivs.moments_wf!(aH[1:nPoints], a_H[1:nPoints], vH[1:nPoints], v_H[1:nPoints], xH[1:nPoints], x_H[1:nPoints], m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
+    EstimateMultipoleDerivs.moments_wf!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
     EstimateMultipoleDerivs.FiniteDifferences.moment_derivs_wf_Mino!(a, E, L, C, M, xBL, rdot, θdot, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nPoints, h)
 end
 
@@ -280,7 +310,8 @@ using ...MinoTimeDerivs, ...MinoDerivs1, ...MinoDerivs2, ...MinoDerivs3, ...Mino
 using ...HarmonicCoords
 using ...FourierFitGSL, ...FourierFitJuliaBase
 using ...ParameterizedDerivs
-using ...ConstructSymmetricArrays
+using ...SymmetricTensors
+using ...MultipoleFitting
 
 function moment_derivs_tr_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, M::Float64, λ::AbstractArray, x::AbstractArray, sign_dr::Float64, sign_dθ::Float64, Mij2data::AbstractArray, Mijk2data::AbstractArray,
     Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray,
@@ -311,7 +342,7 @@ function moment_derivs_tr_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
     d5λ_dt = MinoTimeDerivs.d5λ_dt(dt_dλ, d2t_dλ, d3t_dλ, d4t_dλ, d5t_dλ)
     d6λ_dt = MinoTimeDerivs.d6λ_dt(dt_dλ, d2t_dλ, d3t_dλ, d4t_dλ, d5t_dλ, d6t_dλ)
 
-    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.traj_indices
+    @inbounds Threads.@threads for indices in SymmetricTensors.traj_indices
         if length(indices)==2
             i1, i2 = indices
             for multipole in EstimateMultipoleDerivs.two_index_multipoles_tr
@@ -406,10 +437,10 @@ function moment_derivs_tr_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
     end
 
     # symmetrize moments
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij6);
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij7); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij8);
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij6);
-    ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk7); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk8);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij5); SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij6);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij7); SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij8);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij5); SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij6);
+    SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk7); SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk8);
 end
 
 
@@ -439,7 +470,7 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
         d2λ_dt[i] = MinoTimeDerivs.d2λ_dt(dt_dλ[i], d2t_dλ[i])
     end
 
-    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+    @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
         if length(indices)==2
             i1, i2 = indices
             fit_params = zeros(2 * n_freqs + 1);
@@ -506,15 +537,15 @@ function moment_derivs_wf_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, 
     end
 
     # # symmetrize moments
-    # ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    # ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
-    # ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
+    # SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    # SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3); SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
+    # SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
 end
 
 
 function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2data::AbstractArray, Sij1data::AbstractArray, Mij5::AbstractArray, Mij6::AbstractArray, Mij7::AbstractArray, Mij8::AbstractArray, Mijk7::AbstractArray, Mijk8::AbstractArray, Sij5::AbstractArray, Sij6::AbstractArray, compute_at::Int64, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     Ω = [Ωr, Ωθ, Ωϕ];
-    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.traj_indices
+    @inbounds Threads.@threads for indices in SymmetricTensors.traj_indices
         if length(indices)==2
             i1, i2 = indices
             for multipole in EstimateMultipoleDerivs.two_index_multipoles_tr
@@ -569,17 +600,17 @@ function moment_derivs_tr!(tdata::AbstractArray, Mij2data::AbstractArray, Mijk2d
     end
 
     # symmetrize moments
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij6);
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij7); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Mij8);
-    ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij5); ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij6);
-    ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk7); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk8);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij5); SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij6);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij7); SymmetricTensors.SymmetrizeTwoIndexTensor!(Mij8);
+    SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij5); SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij6);
+    SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk7); SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk8);
 end
 
 
 function moment_derivs_wf!(tdata::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, 
     Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64, nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
     Ω = [Ωr, Ωθ, Ωϕ];
-    @inbounds Threads.@threads for indices in ConstructSymmetricArrays.waveform_indices
+    @inbounds Threads.@threads for indices in SymmetricTensors.waveform_indices
         if length(indices)==2
             i1, i2 = indices
             fit_params = zeros(2 * n_freqs + 1);
@@ -635,16 +666,16 @@ function moment_derivs_wf!(tdata::AbstractArray, Mijk2data::AbstractArray, Mijkl
     end
 
     # # symmetrize moments
-    # ConstructSymmetricArrays.SymmetrizeTwoIndexTensor!(Sij2);
-    # ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Mijk3); ConstructSymmetricArrays.SymmetrizeThreeIndexTensor!(Sijk3);
-    # ConstructSymmetricArrays.SymmetrizeFourIndexTensor!(Mijkl4);
+    # SymmetricTensors.SymmetrizeTwoIndexTensor!(Sij2);
+    # SymmetricTensors.SymmetrizeThreeIndexTensor!(Mijk3); SymmetricTensors.SymmetrizeThreeIndexTensor!(Sijk3);
+    # SymmetricTensors.SymmetrizeFourIndexTensor!(Mijkl4);
 end
 
 
 @views function compute_waveform_moments_and_derivs!(a::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray,
     vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, t::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64},
-    θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray,
-    Sij1data::AbstractArray, Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64,
+    θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64}, ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Mijkl2_data::AbstractArray,
+    Sij1_data::AbstractArray, Sijk1_data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, Ωr::Float64, Ωθ::Float64, Ωϕ::Float64,
     nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
 
     @inbounds for i=1:nPoints
@@ -662,18 +693,20 @@ end
         x_H[i] = xH[i];
         v_H[i] = vH[i];
         a_H[i] = aH[i];
-
     end
 
-    EstimateMultipoleDerivs.moments_wf!(aH[1:nPoints], a_H[1:nPoints], vH[1:nPoints], v_H[1:nPoints], xH[1:nPoints], x_H[1:nPoints], m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_wf!(t, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit)
+    EstimateMultipoleDerivs.moments_wf!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data)
+    # estimate higher order derivative moments
+    MultipoleFitting.fit_moments_wf_BL!(t, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit)
+
+    # EstimateMultipoleDerivs.FourierFit.moment_derivs_wf!(t, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, Ωr, Ωθ, Ωϕ, nPoints, n_freqs, chisq, fit)
 end
 
 @views function compute_waveform_moments_and_derivs_Mino!(a::Float64, E::Float64, L::Float64, C::Float64, m::Float64, M::Float64, xBL::AbstractArray, vBL::AbstractArray, aBL::AbstractArray, 
     xH::AbstractArray, x_H::AbstractArray, rH::AbstractArray, vH::AbstractArray, v_H::AbstractArray, aH::AbstractArray, a_H::AbstractArray, v::AbstractArray, 
     λ::Vector{Float64}, r::Vector{Float64}, rdot::Vector{Float64}, rddot::Vector{Float64}, θ::Vector{Float64}, θdot::Vector{Float64}, θddot::Vector{Float64}, ϕ::Vector{Float64},
-    ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2data::AbstractArray, Mijk2data::AbstractArray, Mijkl2data::AbstractArray, Sij1data::AbstractArray, 
-    Sijk1data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, 
+    ϕdot::Vector{Float64}, ϕddot::Vector{Float64}, Mij2_data::AbstractArray, Mijk2_data::AbstractArray, Mijkl2_data::AbstractArray, Sij1_data::AbstractArray, 
+    Sijk1_data::AbstractArray, Mijk3::AbstractArray, Mijkl4::AbstractArray, Sij2::AbstractArray, Sijk3::AbstractArray, nHarm::Int64, γr::Float64, γθ::Float64, γϕ::Float64, 
     nPoints::Int64, n_freqs::Int64, chisq::Vector{Float64}, fit::String)
 
     @inbounds for i=1:nPoints
@@ -694,8 +727,9 @@ end
 
     end
 
-    EstimateMultipoleDerivs.moments_wf!(aH[1:nPoints], a_H[1:nPoints], vH[1:nPoints], v_H[1:nPoints], xH[1:nPoints], x_H[1:nPoints], m, M, Mij2data, Mijk2data, Mijkl2data, Sij1data, Sijk1data)
-    EstimateMultipoleDerivs.FourierFit.moment_derivs_wf_Mino!(a, E, L, C, M, λ, xBL, rdot, θdot, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq, fit)
+    EstimateMultipoleDerivs.moments_wf!(aH, a_H, vH, v_H, xH, x_H, m, M, Mij2_data, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data)
+    # EstimateMultipoleDerivs.FourierFit.moment_derivs_wf_Mino!(a, E, L, C, M, λ, xBL, rdot, θdot, Mijk2data, Mijkl2data, Sij1data, Sijk1data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq, fit)
+    MultipoleFitting.fit_moments_wf_Mino!(a, E, L, C, M, λ, xBL, rdot, θdot, Mijk2_data, Mijkl2_data, Sij1_data, Sijk1_data, Mijk3, Mijkl4, Sij2, Sijk3, nHarm, γr, γθ, γϕ, nPoints, n_freqs, chisq, fit)
 end
 
 end

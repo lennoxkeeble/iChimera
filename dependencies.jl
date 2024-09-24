@@ -34,6 +34,7 @@ dependencies = [
     "Interpolations",
     "IntervalRootFinding",
     "IntervalArithmetic",
-    "Peaks"
+    "Peaks",
+    "SciMLBase",
 ]
 Pkg.add(dependencies)

@@ -19,8 +19,13 @@ t_max_secs = (10^-3) * year / 3.   # seconds
 t_max_M = t_max_secs / MtoSecs;   # units of M
 
 ### fourier fit parameters ###
-nPointsFit = 501;   # Float64 of points in each piecewise geodesic  
-nHarm = 2;    # Float64 of harmonics in the fourier series expansion — must be odd
+gsl_fit = "GSL";
+nPointsFitGSL = 501;   # number of points in each piecewise geodesic  
+nHarmGSL = 2;    # number of harmonics in the fourier series expansion
+
+julia_fit = "Julia"
+nPointsFitJulia = 101;   # number of points in each piecewise geodesic
+nHarmJulia = 3;    # number of harmonics in the fourier series expansion
 
 ### Boyer-Lindquist fourier fit params ###
 t_range_factor_BL = 0.5;   # determines the "length", ΔΤ, of the piecewise geodesics: ΔT = t_range_factor_BL * (2π / min(Ω)), where Ω are the fundamental frequencies
@@ -33,8 +38,8 @@ h=0.001;
 
 ### geodesic solver parameters ###
 nPointsGeodesic = 500;
-kerrReltol = 1e-10;   # relative tolerance
-kerrAbstol = 1e-10;   # absolute tolerance
+kerrReltol = 1e-14;   # relative tolerance
+kerrAbstol = 1e-14;   # absolute tolerance
 
 ### file paths ###
 # Boyer-Lindquist fourier fit
@@ -80,7 +85,7 @@ compute_fluxes_BL = e!=0.0 ? compute_SF_frac * minimum(@. 2π /Ω) : compute_SF_
 # compute_fluxes_Mino = compute_SF_frac * minimum(@. 2π /ω);   # in units of M (not seconds)
 compute_fluxes_Mino = e!= 0.0 ? compute_SF_frac * minimum(@. 2π /ω[1:3]) : compute_SF_frac * minimum(@. 2π /ω[2:3]);   # in units of M (not seconds)
 
-## Float64 of points in Finite Difference geodesic ##
+## number of points in Finite Difference geodesic ##
 nPointsFDM = Int(floor(compute_fluxes_Mino / h))
 
 ## WAVEFORMS ##

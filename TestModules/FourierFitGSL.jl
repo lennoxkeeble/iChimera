@@ -8,12 +8,12 @@
 module FourierFitGSL
 using GSL
 
-# compute Float64 of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
+# compute number of fitting frequencies for fits with one, two, and three fundamental frequencies for a given harmonic (-1 since we don't count constant term)
 compute_num_fitting_freqs_1(nHarm::Int64) = nHarm
 compute_num_fitting_freqs_2(nHarm::Int64) = Int((nHarm * (5 + 3 * nHarm) / 2))
 compute_num_fitting_freqs_3(nHarm::Int64) = Int( nHarm * (13 + 2 * nHarm * (9 + 4 * nHarm)) / 3)
 
-function compute_num_fitting_freqs_master(nHarm::Int64, Ω::Vector{Float64})
+function compute_num_fitting_freqs_master(nHarm::Int64, Ω::AbstractVector{Float64})
     num_freqs = sum(Ω .< 1e9)
     if num_freqs==3
         compute_num_fitting_freqs_3(nHarm)
@@ -59,7 +59,7 @@ function compute_fitting_frequencies_3(nHarm::Int64, Ωr::Float64, Ωθ::Float64
     return Ω
 end
 
-function compute_fitting_frequencies_master(nHarm::Int64, Ω::Vector{Float64})
+function compute_fitting_frequencies_master(nHarm::Int64, Ω::AbstractVector{Float64})
     freqs = Ω[Ω .< 1e9];
     num_freqs = length(freqs);
     if num_freqs==1
@@ -72,7 +72,7 @@ function compute_fitting_frequencies_master(nHarm::Int64, Ω::Vector{Float64})
 end
 
 # functional form to which we fit data
-function curve_fit_functional(f::Vector{Float64}, tdata::Vector{Float64}, Ω::Vector{Float64}, params::Vector{Float64}, n_freqs::Int64)
+function curve_fit_functional(f::AbstractVector{Float64}, tdata::AbstractVector{Float64}, Ω::AbstractVector{Float64}, params::AbstractVector{Float64}, n_freqs::Int64)
     @inbounds Threads.@threads for i in eachindex(tdata)
         f[i]=params[1]    # first parameter is the constant term
         @inbounds for j in eachindex(Ω)
@@ -83,7 +83,7 @@ function curve_fit_functional(f::Vector{Float64}, tdata::Vector{Float64}, Ω::Ve
 end
 
 # compute Nth derivative
-function curve_fit_functional_derivs(tdata::Vector{Float64}, Ω::Vector{Float64}, params::Vector{Float64}, n_freqs::Int64, n_points::Int64, N::Int64)
+function curve_fit_functional_derivs(tdata::AbstractVector{Float64}, Ω::AbstractVector{Float64}, params::AbstractVector{Float64}, n_freqs::Int64, n_points::Int64, N::Int64)
     # if computing the functional form (i.e., zeroth derivative), then must include constant term
     f = N==0 ? params[1] * ones(n_points) : zeros(n_points)
     @inbounds for i in eachindex(tdata)
@@ -95,7 +95,7 @@ function curve_fit_functional_derivs(tdata::Vector{Float64}, Ω::Vector{Float64}
 end
 
 # row constructor for predictor matrix in GSL fit
-function GSL_fourier_model(t::Vector{Float64}, Ω::Vector{Float64}, n_freqs::Int64)
+function GSL_fourier_model(t::AbstractVector{Float64}, Ω::AbstractVector{Float64}, n_freqs::Int64)
     f=ones(n_freqs+1)
     @inbounds for i in 1:n_freqs
         f[i+1] = cos(Ω[i] * t)
@@ -127,7 +127,7 @@ function free_memory!(x::Ptr{gsl_vector}, y::Ptr{gsl_vector}, X::Ptr{gsl_matrix}
 end
 
 # fill GSL vectors 'xdata' and 'ydata' for the fit
-function fill_gsl_vectors!(xGSL::Ptr{gsl_vector}, yGSL::Ptr{gsl_vector}, x::Vector{Float64}, y::Vector{Float64}, n_p::Int64)
+function fill_gsl_vectors!(xGSL::Ptr{gsl_vector}, yGSL::Ptr{gsl_vector}, x::AbstractVector{Float64}, y::AbstractVector{Float64}, n_p::Int64)
     @inbounds Threads.@threads for i=0:(n_p-1)
         GSL.vector_set(xGSL, i, x[i+1])
         GSL.vector_set(yGSL, i, y[i+1])
@@ -136,14 +136,14 @@ end
 
 #=
 
-    The predictor matrix X has a Float64 of rows equal to the Float64 of y-values to which we are fitting. Each row, therefore, consists of the functional form to which we 
+    The predictor matrix X has a number of rows equal to the number of y-values to which we are fitting. Each row, therefore, consists of the functional form to which we 
     are fitting evaluated at each element of the x vector. The input function 'model' must output a vector whose elements are the componenets of the functional form. In other words,
     if the function form we are fitting to is f(x), then we must have f(x) = sum(model(x))
 
 =#
 
 # row constructor for predictor matrix in GSL fit
-function GSL_fourier_model(t::Float64, Ω::Vector{Float64}, n_freqs::Int64,  n_coeffs::Int64)
+function GSL_fourier_model(t::Float64, Ω::AbstractVector{Float64}, n_freqs::Int64,  n_coeffs::Int64)
     f=ones(n_coeffs)    # a constant term, and then a cosine and sine term for each fitting frequency
     @inbounds for i in 1:n_freqs
         f[i+1] = cos(Ω[i] * t)
@@ -152,8 +152,8 @@ function GSL_fourier_model(t::Float64, Ω::Vector{Float64}, n_freqs::Int64,  n_c
     return f
 end
 
-# fill predictor matrix X: N is Float64 of harmonics, and Ω_fit is the fitting frequencies
-function fill_predictor_matrix!(X::Ptr{gsl_matrix}, x::Vector{Float64}, n_p::Int64, n_freqs::Int64,  n_coeffs::Int64, Ω_fit::Vector{Float64})
+# fill predictor matrix X: N is number of harmonics, and Ω_fit is the fitting frequencies
+function fill_predictor_matrix!(X::Ptr{gsl_matrix}, x::AbstractVector{Float64}, n_p::Int64, n_freqs::Int64,  n_coeffs::Int64, Ω_fit::AbstractVector{Float64})
     # construct the fit matrix X 
     @inbounds Threads.@threads for i=0:n_p-1
         Xij = FourierFitGSL.GSL_fourier_model(x[i+1], Ω_fit, n_freqs, n_coeffs)
@@ -165,12 +165,12 @@ function fill_predictor_matrix!(X::Ptr{gsl_matrix}, x::Vector{Float64}, n_p::Int
 end
 
 # call multilinear fit
-function curve_fit!(y::Ptr{gsl_vector}, X::Ptr{gsl_matrix}, c::Ptr{gsl_vector}, cov::Ptr{gsl_matrix}, work::Ptr{gsl_multifit_linear_workspace}, chisq::Vector{Float64})
+function curve_fit!(y::Ptr{gsl_vector}, X::Ptr{gsl_matrix}, c::Ptr{gsl_vector}, cov::Ptr{gsl_matrix}, work::Ptr{gsl_multifit_linear_workspace}, chisq::AbstractVector{Float64})
     GSL.multifit_linear(X, y, c, cov, chisq, work)
 end
 
 # master functions for carrying out fit with one, two or three fundamental frequencies
-function GSL_fit_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, nHarm::Int64, chisq::Vector{Float64},  Ω1::Float64, fit_params::Vector{Float64})
+function GSL_fit_1!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, n_p::Int64, nHarm::Int64, chisq::AbstractVector{Float64},  Ω1::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitGSL.compute_fitting_frequencies_1(nHarm, Ω1)
     n_freqs = compute_num_fitting_freqs_1(nHarm)
@@ -191,7 +191,7 @@ function GSL_fit_1!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, 
     return Ω_fit
 end
 
-function GSL_fit_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, nHarm::Int64, chisq::Vector{Float64},  Ω1::Float64, Ω2::Float64, fit_params::Vector{Float64})
+function GSL_fit_2!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, n_p::Int64, nHarm::Int64, chisq::AbstractVector{Float64},  Ω1::Float64, Ω2::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitGSL.compute_fitting_frequencies_2(nHarm, Ω1, Ω2)
     n_freqs = compute_num_fitting_freqs_2(nHarm)
@@ -212,7 +212,7 @@ function GSL_fit_2!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, 
     return Ω_fit
 end
 
-function GSL_fit_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, nHarm::Int64, chisq::Vector{Float64},  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::Vector{Float64})
+function GSL_fit_3!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, n_p::Int64, nHarm::Int64, chisq::AbstractVector{Float64},  Ω1::Float64, Ω2::Float64, Ω3::Float64, fit_params::AbstractVector{Float64})
     # compute fitting frequncies and their Float64
     Ω_fit = FourierFitGSL.compute_fitting_frequencies_3(nHarm, Ω1, Ω2, Ω3)
     n_freqs = compute_num_fitting_freqs_3(nHarm)
@@ -233,7 +233,7 @@ function GSL_fit_3!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, 
     return Ω_fit
 end
 
-function GSL_fit_master!(xdata::Vector{Float64}, ydata::Vector{Float64}, n_p::Int64, nHarm::Int64, chisq::Vector{Float64},  Ω::Vector{Float64}, fit_params::Vector{Float64})
+function GSL_fit_master!(xdata::AbstractVector{Float64}, ydata::AbstractVector{Float64}, n_p::Int64, nHarm::Int64, chisq::AbstractVector{Float64},  Ω::AbstractVector{Float64}, fit_params::AbstractVector{Float64})
     freqs = Ω[Ω .< 1e9];
     num_freqs = length(freqs);
     if num_freqs==1

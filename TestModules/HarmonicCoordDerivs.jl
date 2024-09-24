@@ -18,7 +18,7 @@ d7ρ(r::Float64, a::Float64, M::Float64) = (315*a^2*(5*a^4 - 20*a^2*(M - r)^2 + 
 
 d8ρ(r::Float64, a::Float64, M::Float64) = (315*a^2*(-5*a^6 + 120*a^4*(M - r)^2 - 240*a^2*(M - r)^4 + 64*(M - r)^6))/(a^2 + (M - r)^2)^7.5
 
-function compute_ρ_derivs!(dρ::Vector{Float64}, r::Float64, a::Float64, M::Float64)
+function compute_ρ_derivs!(dρ::AbstractVector{Float64}, r::Float64, a::Float64, M::Float64)
     dρ[1] = d1ρ(r, a, M)
     dρ[2] = d2ρ(r, a, M)
     dρ[3] = d3ρ(r, a, M)
@@ -55,7 +55,7 @@ d8Φ(r::Float64, a::Float64, rm::Float64, rp::Float64, M::Float64) = (40320*a*(a
 (2520*a*(2*r - rm - rp)*(rm - rp)*(2*r^2 + rm^2 + rp^2 - 2*r*(rm + rp))*(2*r^4 + rm^4 + rp^4 - 4*r^3*(rm + rp) + 6*r^2*(rm^2 + rp^2) -
 4*r*(rm^3 + rp^3)))/(sqrt(-a^2 + M^2)*(r - rm)^8*(r - rp)^8)
 
-function compute_Φ_derivs!(dΦ::Vector{Float64}, r::Float64, a::Float64, rm::Float64, rp::Float64, M::Float64)
+function compute_Φ_derivs!(dΦ::AbstractVector{Float64}, r::Float64, a::Float64, rm::Float64, rp::Float64, M::Float64)
     dΦ[1] = d1Φ(r, a, rm, rp, M)
     dΦ[2] = d2Φ(r, a, rm, rp, M)
     dΦ[3] = d3Φ(r, a, rm, rp, M)
@@ -66,36 +66,36 @@ function compute_Φ_derivs!(dΦ::Vector{Float64}, r::Float64, a::Float64, rm::Fl
     dΦ[8] = d8Φ(r, a, rm, rp, M)
 end
 
-ξ(x::Vector{Float64}, Φ::Float64) = x[3] - Φ
+ξ(x::AbstractVector{Float64}, Φ::Float64) = x[3] - Φ
 
-d1ξ(dx::Vector{Float64}, dΦ::Vector{Float64}) = dx[3] - dx[1]*dΦ[1]
+d1ξ(dx::AbstractVector{Float64}, dΦ::AbstractVector{Float64}) = dx[3] - dx[1]*dΦ[1]
 
-d2ξ(dx::Vector{Float64}, d2x::Vector{Float64}, dΦ::Vector{Float64}) = -(dΦ[1]*d2x[1]) + d2x[3] - dx[1]^2*dΦ[2]
+d2ξ(dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, dΦ::AbstractVector{Float64}) = -(dΦ[1]*d2x[1]) + d2x[3] - dx[1]^2*dΦ[2]
 
-d3ξ(dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, dΦ::Vector{Float64}) = -3*dx[1]*d2x[1]*dΦ[2] - dΦ[1]*d3x[1] + d3x[3] - dx[1]^3*dΦ[3]
+d3ξ(dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, dΦ::AbstractVector{Float64}) = -3*dx[1]*d2x[1]*dΦ[2] - dΦ[1]*d3x[1] + d3x[3] - dx[1]^3*dΦ[3]
 
-d4ξ(dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, dΦ::Vector{Float64}) = -3*d2x[1]^2*dΦ[2] - 4*dx[1]*dΦ[2]*d3x[1] -
+d4ξ(dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, dΦ::AbstractVector{Float64}) = -3*d2x[1]^2*dΦ[2] - 4*dx[1]*dΦ[2]*d3x[1] -
 6*dx[1]^2*d2x[1]*dΦ[3] - dΦ[1]*d4x[1] + d4x[3] - dx[1]^4*dΦ[4]
 
-d5ξ(dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, dΦ::Vector{Float64}) = -10*d2x[1]*dΦ[2]*d3x[1] -
+d5ξ(dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, dΦ::AbstractVector{Float64}) = -10*d2x[1]*dΦ[2]*d3x[1] -
 15*dx[1]*d2x[1]^2*dΦ[3] - 10*dx[1]^2*d3x[1]*dΦ[3] - 5*dx[1]*dΦ[2]*d4x[1] - 10*dx[1]^3*d2x[1]*dΦ[4] - dΦ[1]*d5x[1] + d5x[3] - dx[1]^5*dΦ[5]
 
-d6ξ(dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, dΦ::Vector{Float64}) = -10*dΦ[2]*d3x[1]^2 -
+d6ξ(dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, dΦ::AbstractVector{Float64}) = -10*dΦ[2]*d3x[1]^2 -
 15*d2x[1]^3*dΦ[3] - 60*dx[1]*d2x[1]*d3x[1]*dΦ[3] - 15*d2x[1]*dΦ[2]*d4x[1] - 15*dx[1]^2*dΦ[3]*d4x[1] - 45*dx[1]^2*d2x[1]^2*dΦ[4] - 20*dx[1]^3*d3x[1]*dΦ[4] - 6*dx[1]*dΦ[2]*d5x[1] - 15*dx[1]^4*d2x[1]*dΦ[5] - dΦ[1]*d6x[1] + d6x[3] - dx[1]^6*dΦ[6]
 
-d7ξ(dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64},
-dΦ::Vector{Float64}) = -105*d2x[1]^2*d3x[1]*dΦ[3] - 70*dx[1]*d3x[1]^2*dΦ[3] - 35*dΦ[2]*d3x[1]*d4x[1] - 105*dx[1]*d2x[1]*dΦ[3]*d4x[1] - 105*dx[1]*d2x[1]^3*dΦ[4] -
+d7ξ(dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64},
+dΦ::AbstractVector{Float64}) = -105*d2x[1]^2*d3x[1]*dΦ[3] - 70*dx[1]*d3x[1]^2*dΦ[3] - 35*dΦ[2]*d3x[1]*d4x[1] - 105*dx[1]*d2x[1]*dΦ[3]*d4x[1] - 105*dx[1]*d2x[1]^3*dΦ[4] -
 210*dx[1]^2*d2x[1]*d3x[1]*dΦ[4] - 35*dx[1]^3*d4x[1]*dΦ[4] - 21*d2x[1]*dΦ[2]*d5x[1] - 21*dx[1]^2*dΦ[3]*d5x[1] - 105*dx[1]^3*d2x[1]^2*dΦ[5] - 35*dx[1]^4*d3x[1]*dΦ[5] -
 7*dx[1]*dΦ[2]*d6x[1] - 21*dx[1]^5*d2x[1]*dΦ[6] - dΦ[1]*d7x[1] + d7x[3] - dx[1]^7*dΦ[7]
 
-d8ξ(dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64}, d8x::Vector{Float64},
-dΦ::Vector{Float64}) = -280*d2x[1]*d3x[1]^2*dΦ[3] - 210*d2x[1]^2*dΦ[3]*d4x[1] - 280*dx[1]*d3x[1]*dΦ[3]*d4x[1] - 35*dΦ[2]*d4x[1]^2 - 105*d2x[1]^4*dΦ[4] -
+d8ξ(dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64}, d8x::AbstractVector{Float64},
+dΦ::AbstractVector{Float64}) = -280*d2x[1]*d3x[1]^2*dΦ[3] - 210*d2x[1]^2*dΦ[3]*d4x[1] - 280*dx[1]*d3x[1]*dΦ[3]*d4x[1] - 35*dΦ[2]*d4x[1]^2 - 105*d2x[1]^4*dΦ[4] -
 840*dx[1]*d2x[1]^2*d3x[1]*dΦ[4] - 280*dx[1]^2*d3x[1]^2*dΦ[4] - 420*dx[1]^2*d2x[1]*d4x[1]*dΦ[4] - 56*dΦ[2]*d3x[1]*d5x[1] - 168*dx[1]*d2x[1]*dΦ[3]*d5x[1] -
 56*dx[1]^3*dΦ[4]*d5x[1] - 420*dx[1]^2*d2x[1]^3*dΦ[5] - 560*dx[1]^3*d2x[1]*d3x[1]*dΦ[5] - 70*dx[1]^4*d4x[1]*dΦ[5] - 28*d2x[1]*dΦ[2]*d6x[1] - 28*dx[1]^2*dΦ[3]*d6x[1] -
 210*dx[1]^4*d2x[1]^2*dΦ[6] - 56*dx[1]^5*d3x[1]*dΦ[6] - 8*dx[1]*dΦ[2]*d7x[1] - 28*dx[1]^6*d2x[1]*dΦ[7] - dΦ[1]*d8x[1] + d8x[3] - dx[1]^8*dΦ[8]
 
-function compute_ξ_derivs!(dξ::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64},
-    d7x::Vector{Float64}, d8x::Vector{Float64}, dΦ::Vector{Float64})
+function compute_ξ_derivs!(dξ::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64},
+    d7x::AbstractVector{Float64}, d8x::AbstractVector{Float64}, dΦ::AbstractVector{Float64})
     dξ[1] = d1ξ(dx, dΦ)
     dξ[2] = d2ξ(dx, d2x, dΦ)
     dξ[3] = d3ξ(dx, d2x, d3x, dΦ)
@@ -106,22 +106,22 @@ function compute_ξ_derivs!(dξ::Vector{Float64}, dx::Vector{Float64}, d2x::Vect
     dξ[8] = d8ξ(dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, dΦ)
 end
 
-xH(x::Vector{Float64}, ξ::Float64, ρ::Float64) = sin(x[2])*cos(ξ)*ρ
+xH(x::AbstractVector{Float64}, ξ::Float64, ρ::Float64) = sin(x[2])*cos(ξ)*ρ
 
-dxH1(x::Vector{Float64}, dx::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = cos(x[2])*cos(ξ)*ρ*dx[2] - sin(x[2])*sin(ξ)*ρ*dξ[1] +
+dxH1(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = cos(x[2])*cos(ξ)*ρ*dx[2] - sin(x[2])*sin(ξ)*ρ*dξ[1] +
 cos(ξ)*sin(x[2])*dx[1]*dρ[1]
 
-dxH2(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 2*dx[1]*(cos(x[2])*cos(ξ)*dx[2] -
+dxH2(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 2*dx[1]*(cos(x[2])*cos(ξ)*dx[2] -
 sin(x[2])*sin(ξ)*dξ[1])*dρ[1] + ρ*(-2*cos(x[2])*sin(ξ)*dx[2]*dξ[1] + cos(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2])) +
 cos(ξ)*sin(x[2])*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])
 
-dxH3(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 3*dx[1]*dρ[1]*(-2*
+dxH3(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 3*dx[1]*dρ[1]*(-2*
 cos(x[2])*sin(ξ)*dx[2]*dξ[1] + cos(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2])) + 3*(cos(x[2])*cos(ξ)*dx[2] -
 sin(x[2])*sin(ξ)*dξ[1])*(dρ[1]*d2x[1] + dx[1]^2*dρ[2]) + ρ*(-3*sin(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) +
 cos(ξ)*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2] - sin(ξ)*dξ[3])) + cos(ξ)*sin(x[2])*(3*dx[1]*
 d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3])
 
-dxH4(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 6*(-2*cos(x[2])*sin(ξ)*dx[2]*dξ[1] + cos(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]))*(dρ[1]*d2x[1] + dx[1]^2*dρ[2]) +
+dxH4(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 6*(-2*cos(x[2])*sin(ξ)*dx[2]*dξ[1] + cos(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]))*(dρ[1]*d2x[1] + dx[1]^2*dρ[2]) +
 4*dx[1]*dρ[1]*(-3*sin(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) + cos(ξ)*(-(cos(x[2])*dx[2]^3) -
 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2] - sin(ξ)*dξ[3])) + 4*(cos(x[2])*cos(ξ)*dx[2] -
 sin(x[2])*sin(ξ)*dξ[1])*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3]) + ρ*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) -
@@ -130,7 +130,7 @@ cos(ξ)*(sin(x[2])*dx[2]^4 - 6*cos(x[2])*dx[2]^2*d2x[2] - 3*sin(x[2])*d2x[2]^2 -
 6*sin(ξ)*dξ[1]^2*dξ[2] - 3*cos(ξ)*dξ[2]^2 - 4*cos(ξ)*dξ[1]*dξ[3] - sin(ξ)*dξ[4])) + cos(ξ)*sin(x[2])*(3*d2x[1]^2*dρ[2] + 4*dx[1]*dρ[2]*d3x[1] + 6*dx[1]^2*d2x[1]*dρ[3] +
 dρ[1]*d4x[1] + dx[1]^4*dρ[4])
 
-dxH5(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 10*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])*(-3*sin(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^2) -
+dxH5(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 10*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])*(-3*sin(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^2) -
 sin(ξ)*dξ[2]) + cos(ξ)*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2] - sin(ξ)*dξ[3])) +
 10*(-2*cos(x[2])*sin(ξ)*dx[2]*dξ[1] + cos(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]))*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] +
 dx[1]^3*dρ[3]) + 5*dx[1]*dρ[1]*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) - 4*sin(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] +
@@ -144,7 +144,7 @@ cos(x[2])*d3x[2]) + 4*cos(x[2])*dx[2]*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2
 10*cos(ξ)*dξ[1]^3*dξ[2] + 15*sin(ξ)*dξ[1]*dξ[2]^2 + 10*sin(ξ)*dξ[1]^2*dξ[3] - 10*cos(ξ)*dξ[2]*dξ[3] - 5*cos(ξ)*dξ[1]*dξ[4] - sin(ξ)*dξ[5])) +
 cos(ξ)*sin(x[2])*(10*d2x[1]*dρ[2]*d3x[1] + 15*dx[1]*d2x[1]^2*dρ[3] + 10*dx[1]^2*d3x[1]*dρ[3] + 5*dx[1]*dρ[2]*d4x[1] + 10*dx[1]^3*d2x[1]*dρ[4] + dρ[1]*d5x[1] + dx[1]^5*dρ[5])
 
-dxH6(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 20*(-3*sin(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) +
+dxH6(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 20*(-3*sin(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) +
 cos(ξ)*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2] - sin(ξ)*dξ[3]))*(3*dx[1]*d2x[1]*dρ[2] +
 dρ[1]*d3x[1] + dx[1]^3*dρ[3]) + 15*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) -
 4*sin(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + 4*cos(x[2])*dx[2]*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2] - sin(ξ)*dξ[3]) +
@@ -168,7 +168,7 @@ sin(x[2])*(-(cos(ξ)*dξ[1]^6) - 15*sin(ξ)*dξ[1]^4*dξ[2] + 45*cos(ξ)*dξ[1]^
 60*dx[1]*d2x[1]*d3x[1]*dρ[3] + 15*d2x[1]*dρ[2]*d4x[1] + 15*dx[1]^2*dρ[3]*d4x[1] + 45*dx[1]^2*d2x[1]^2*dρ[4] + 20*dx[1]^3*d3x[1]*dρ[4] + 6*dx[1]*dρ[2]*d5x[1] +
 15*dx[1]^4*d2x[1]*dρ[5] + dρ[1]*d6x[1] + dx[1]^6*dρ[6])
 
-dxH7(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 35*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3])*(6*(-(sin(x[2])*dx[2]^2) +
+dxH7(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 35*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3])*(6*(-(sin(x[2])*dx[2]^2) +
 cos(x[2])*d2x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) - 4*sin(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) +
 4*cos(x[2])*dx[2]*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2] - sin(ξ)*dξ[3]) + cos(ξ)*(sin(x[2])*dx[2]^4 - 6*cos(x[2])*dx[2]^2*d2x[2] - 3*sin(x[2])*d2x[2]^2 -
 4*sin(x[2])*dx[2]*d3x[2] + cos(x[2])*d4x[2]) + sin(x[2])*(cos(ξ)*dξ[1]^4 + 6*sin(ξ)*dξ[1]^2*dξ[2] - 3*cos(ξ)*dξ[2]^2 - 4*cos(ξ)*dξ[1]*dξ[3] - sin(ξ)*dξ[4])) +
@@ -207,7 +207,7 @@ sin(x[2])*(sin(ξ)*dξ[1]^7 - 21*cos(ξ)*dξ[1]^5*dξ[2] - 105*sin(ξ)*dξ[1]^3*
 105*dx[1]*d2x[1]*dρ[3]*d4x[1] + 105*dx[1]*d2x[1]^3*dρ[4] + 210*dx[1]^2*d2x[1]*d3x[1]*dρ[4] + 35*dx[1]^3*d4x[1]*dρ[4] + 21*d2x[1]*dρ[2]*d5x[1] + 21*dx[1]^2*dρ[3]*d5x[1] +
 105*dx[1]^3*d2x[1]^2*dρ[5] + 35*dx[1]^4*d3x[1]*dρ[5] + 7*dx[1]*dρ[2]*d6x[1] + 21*dx[1]^5*d2x[1]*dρ[6] + dρ[1]*d7x[1] + dx[1]^7*dρ[7])
 
-dxH8(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64}, d8x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 70*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) -
+dxH8(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64}, d8x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 70*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(cos(ξ)*dξ[1]^2) - sin(ξ)*dξ[2]) -
 4*sin(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + 4*cos(x[2])*dx[2]*(sin(ξ)*dξ[1]^3 - 3*cos(ξ)*dξ[1]*dξ[2] - sin(ξ)*dξ[3]) +
 cos(ξ)*(sin(x[2])*dx[2]^4 - 6*cos(x[2])*dx[2]^2*d2x[2] - 3*sin(x[2])*d2x[2]^2 - 4*sin(x[2])*dx[2]*d3x[2] + cos(x[2])*d4x[2]) + sin(x[2])*(cos(ξ)*dξ[1]^4 +
 6*sin(ξ)*dξ[1]^2*dξ[2] - 3*cos(ξ)*dξ[2]^2 - 4*cos(ξ)*dξ[1]*dξ[3] - sin(ξ)*dξ[4]))*(3*d2x[1]^2*dρ[2] + 4*dx[1]*dρ[2]*d3x[1] + 6*dx[1]^2*d2x[1]*dρ[3] + dρ[1]*d4x[1] +
@@ -274,21 +274,21 @@ sin(ξ)*dξ[6]) - 8*sin(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^7) - 21*sin(x[2])*dx[2]^5*
 28*d2x[1]*dρ[2]*d6x[1] + 28*dx[1]^2*dρ[3]*d6x[1] + 210*dx[1]^4*d2x[1]^2*dρ[6] + 56*dx[1]^5*d3x[1]*dρ[6] + 8*dx[1]*dρ[2]*d7x[1] + 28*dx[1]^6*d2x[1]*dρ[7] + dρ[1]*d8x[1] +
 dx[1]^8*dρ[8])
 
-yH(x::Vector{Float64}, ξ::Float64, ρ::Float64) = sin(x[2])*sin(ξ)*ρ
+yH(x::AbstractVector{Float64}, ξ::Float64, ρ::Float64) = sin(x[2])*sin(ξ)*ρ
 
-dyH1(x::Vector{Float64}, dx::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = cos(x[2])*sin(ξ)*ρ*dx[2] + cos(ξ)*sin(x[2])*ρ*dξ[1] +
+dyH1(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = cos(x[2])*sin(ξ)*ρ*dx[2] + cos(ξ)*sin(x[2])*ρ*dξ[1] +
 sin(x[2])*sin(ξ)*dx[1]*dρ[1]
 
-dyH2(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 2*dx[1]*(cos(x[2])*sin(ξ)*dx[2] +
+dyH2(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 2*dx[1]*(cos(x[2])*sin(ξ)*dx[2] +
 cos(ξ)*sin(x[2])*dξ[1])*dρ[1] + ρ*(2*cos(x[2])*cos(ξ)*dx[2]*dξ[1] + sin(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2])) +
 sin(x[2])*sin(ξ)*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])
 
-dyH3(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 3*dx[1]*dρ[1]*(2*cos(x[2])*cos(ξ)*dx[2]*dξ[1] + sin(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2])) + 3*(cos(x[2])*sin(ξ)*dx[2] +
+dyH3(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 3*dx[1]*dρ[1]*(2*cos(x[2])*cos(ξ)*dx[2]*dξ[1] + sin(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2])) + 3*(cos(x[2])*sin(ξ)*dx[2] +
 cos(ξ)*sin(x[2])*dξ[1])*(dρ[1]*d2x[1] + dx[1]^2*dρ[2]) + ρ*(3*cos(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
 sin(ξ)*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^3) - 3*sin(ξ)*dξ[1]*dξ[2] + cos(ξ)*dξ[3])) +
 sin(x[2])*sin(ξ)*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3])
 
-dyH4(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 6*(2*cos(x[2])*cos(ξ)*dx[2]*dξ[1] + sin(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]))*(dρ[1]*d2x[1] + dx[1]^2*dρ[2]) +
+dyH4(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 6*(2*cos(x[2])*cos(ξ)*dx[2]*dξ[1] + sin(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]))*(dρ[1]*d2x[1] + dx[1]^2*dρ[2]) +
 4*dx[1]*dρ[1]*(3*cos(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) + sin(ξ)*(-(cos(x[2])*dx[2]^3) -
 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^3) - 3*sin(ξ)*dξ[1]*dξ[2] + cos(ξ)*dξ[3])) + 4*(cos(x[2])*sin(ξ)*dx[2] +
 cos(ξ)*sin(x[2])*dξ[1])*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3]) + ρ*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
@@ -297,7 +297,7 @@ sin(ξ)*(sin(x[2])*dx[2]^4 - 6*cos(x[2])*dx[2]^2*d2x[2] - 3*sin(x[2])*d2x[2]^2 -
 6*cos(ξ)*dξ[1]^2*dξ[2] - 3*sin(ξ)*dξ[2]^2 - 4*sin(ξ)*dξ[1]*dξ[3] + cos(ξ)*dξ[4])) + sin(x[2])*sin(ξ)*(3*d2x[1]^2*dρ[2] + 4*dx[1]*dρ[2]*d3x[1] + 6*dx[1]^2*d2x[1]*dρ[3] +
 dρ[1]*d4x[1] + dx[1]^4*dρ[4])
 
-dyH5(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 10*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])*(3*cos(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
+dyH5(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 10*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])*(3*cos(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
 sin(ξ)*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^3) - 3*sin(ξ)*dξ[1]*dξ[2] + cos(ξ)*dξ[3])) +
 10*(2*cos(x[2])*cos(ξ)*dx[2]*dξ[1] + sin(ξ)*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + sin(x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]))*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] +
 dx[1]^3*dρ[3]) + 5*dx[1]*dρ[1]*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) + 4*cos(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) -
@@ -312,7 +312,7 @@ cos(x[2])*d5x[2]) + sin(x[2])*(cos(ξ)*dξ[1]^5 + 10*sin(ξ)*dξ[1]^3*dξ[2] - 1
 cos(ξ)*dξ[5])) + sin(x[2])*sin(ξ)*(10*d2x[1]*dρ[2]*d3x[1] + 15*dx[1]*d2x[1]^2*dρ[3] + 10*dx[1]^2*d3x[1]*dρ[3] + 5*dx[1]*dρ[2]*d4x[1] + 10*dx[1]^3*d2x[1]*dρ[4] + dρ[1]*d5x[1] +
 dx[1]^5*dρ[5])
 
-dyH6(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 20*(3*cos(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
+dyH6(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 20*(3*cos(ξ)*dξ[1]*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2]) + 3*cos(x[2])*dx[2]*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
 sin(ξ)*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + sin(x[2])*(-(cos(ξ)*dξ[1]^3) - 3*sin(ξ)*dξ[1]*dξ[2] + cos(ξ)*dξ[3]))*(3*dx[1]*d2x[1]*dρ[2] +
 dρ[1]*d3x[1] + dx[1]^3*dρ[3]) + 15*(dρ[1]*d2x[1] + dx[1]^2*dρ[2])*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
 4*cos(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + 4*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^3) - 3*sin(ξ)*dξ[1]*dξ[2] + cos(ξ)*dξ[3]) +
@@ -337,7 +337,7 @@ cos(ξ)*dξ[3]) + 15*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2])*(sin(x[2])*dx[2]^4 -
 sin(x[2])*sin(ξ)*(10*dρ[2]*d3x[1]^2 + 15*d2x[1]^3*dρ[3] + 60*dx[1]*d2x[1]*d3x[1]*dρ[3] + 15*d2x[1]*dρ[2]*d4x[1] + 15*dx[1]^2*dρ[3]*d4x[1] + 45*dx[1]^2*d2x[1]^2*dρ[4] +
 20*dx[1]^3*d3x[1]*dρ[4] + 6*dx[1]*dρ[2]*d5x[1] + 15*dx[1]^4*d2x[1]*dρ[5] + dρ[1]*d6x[1] + dx[1]^6*dρ[6])
 
-dyH7(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 35*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3])*(6*(-(sin(x[2])*dx[2]^2) +
+dyH7(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 35*(3*dx[1]*d2x[1]*dρ[2] + dρ[1]*d3x[1] + dx[1]^3*dρ[3])*(6*(-(sin(x[2])*dx[2]^2) +
 cos(x[2])*d2x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) + 4*cos(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) +
 4*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^3) - 3*sin(ξ)*dξ[1]*dξ[2] + cos(ξ)*dξ[3]) + sin(ξ)*(sin(x[2])*dx[2]^4 - 6*cos(x[2])*dx[2]^2*d2x[2] - 3*sin(x[2])*d2x[2]^2 -
 4*sin(x[2])*dx[2]*d3x[2] + cos(x[2])*d4x[2]) + sin(x[2])*(sin(ξ)*dξ[1]^4 - 6*cos(ξ)*dξ[1]^2*dξ[2] - 3*sin(ξ)*dξ[2]^2 - 4*sin(ξ)*dξ[1]*dξ[3] + cos(ξ)*dξ[4])) +
@@ -378,7 +378,7 @@ sin(x[2])*(-(cos(ξ)*dξ[1]^7) - 21*sin(ξ)*dξ[1]^5*dξ[2] + 105*cos(ξ)*dξ[1]
 105*dx[1]*d2x[1]*dρ[3]*d4x[1] + 105*dx[1]*d2x[1]^3*dρ[4] + 210*dx[1]^2*d2x[1]*d3x[1]*dρ[4] + 35*dx[1]^3*d4x[1]*dρ[4] + 21*d2x[1]*dρ[2]*d5x[1] + 21*dx[1]^2*dρ[3]*d5x[1] +
 105*dx[1]^3*d2x[1]^2*dρ[5] + 35*dx[1]^4*d3x[1]*dρ[5] + 7*dx[1]*dρ[2]*d6x[1] + 21*dx[1]^5*d2x[1]*dρ[6] + dρ[1]*d7x[1] + dx[1]^7*dρ[7])
 
-dyH8(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64}, d8x::Vector{Float64}, ξ::Float64, dξ::Vector{Float64}, ρ::Float64, dρ::Vector{Float64}) = 70*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
+dyH8(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64}, d8x::AbstractVector{Float64}, ξ::Float64, dξ::AbstractVector{Float64}, ρ::Float64, dρ::AbstractVector{Float64}) = 70*(6*(-(sin(x[2])*dx[2]^2) + cos(x[2])*d2x[2])*(-(sin(ξ)*dξ[1]^2) + cos(ξ)*dξ[2]) +
 4*cos(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^3) - 3*sin(x[2])*dx[2]*d2x[2] + cos(x[2])*d3x[2]) + 4*cos(x[2])*dx[2]*(-(cos(ξ)*dξ[1]^3) - 3*sin(ξ)*dξ[1]*dξ[2] + cos(ξ)*dξ[3]) +
 sin(ξ)*(sin(x[2])*dx[2]^4 - 6*cos(x[2])*dx[2]^2*d2x[2] - 3*sin(x[2])*d2x[2]^2 - 4*sin(x[2])*dx[2]*d3x[2] + cos(x[2])*d4x[2]) + sin(x[2])*(sin(ξ)*dξ[1]^4 -
 6*cos(ξ)*dξ[1]^2*dξ[2] - 3*sin(ξ)*dξ[2]^2 - 4*sin(ξ)*dξ[1]*dξ[3] + cos(ξ)*dξ[4]))*(3*d2x[1]^2*dρ[2] + 4*dx[1]*dρ[2]*d3x[1] + 6*dx[1]^2*d2x[1]*dρ[3] + dρ[1]*d4x[1] +
@@ -445,32 +445,32 @@ cos(ξ)*dξ[6]) + 8*cos(ξ)*dξ[1]*(-(cos(x[2])*dx[2]^7) - 21*sin(x[2])*dx[2]^5*
 28*d2x[1]*dρ[2]*d6x[1] + 28*dx[1]^2*dρ[3]*d6x[1] + 210*dx[1]^4*d2x[1]^2*dρ[6] + 56*dx[1]^5*d3x[1]*dρ[6] + 8*dx[1]*dρ[2]*d7x[1] + 28*dx[1]^6*d2x[1]*dρ[7] + dρ[1]*d8x[1] +
 dx[1]^8*dρ[8])
 
-zH(x::Vector{Float64}, r::Float64, M::Float64) = (r - M) * cos(x[2])
+zH(x::AbstractVector{Float64}, r::Float64, M::Float64) = (r - M) * cos(x[2])
 
-dzH1(x::Vector{Float64}, dx::Vector{Float64}, M::Float64) = cos(x[2])*dx[1] - (-M + x[1])*sin(x[2])*dx[2]
+dzH1(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, M::Float64) = cos(x[2])*dx[1] - (-M + x[1])*sin(x[2])*dx[2]
 
-dzH2(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, M::Float64) = -2*sin(x[2])*dx[1]*dx[2] + cos(x[2])*d2x[1] + (-M + x[1])*(-(cos(x[2])*dx[2]^2) - sin(x[2])*d2x[2])
+dzH2(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, M::Float64) = -2*sin(x[2])*dx[1]*dx[2] + cos(x[2])*d2x[1] + (-M + x[1])*(-(cos(x[2])*dx[2]^2) - sin(x[2])*d2x[2])
 
-dzH3(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, M::Float64) = -3*sin(x[2])*dx[2]*d2x[1] + 3*dx[1]*(-(cos(x[2])*dx[2]^2) -
+dzH3(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, M::Float64) = -3*sin(x[2])*dx[2]*d2x[1] + 3*dx[1]*(-(cos(x[2])*dx[2]^2) -
 sin(x[2])*d2x[2]) + cos(x[2])*d3x[1] + (-M + x[1])*(sin(x[2])*dx[2]^3 - 3*cos(x[2])*dx[2]*d2x[2] - sin(x[2])*d3x[2])
 
-dzH4(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, M::Float64) = 6*d2x[1]*(-(cos(x[2])*dx[2]^2) - sin(x[2])*d2x[2]) -
+dzH4(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, M::Float64) = 6*d2x[1]*(-(cos(x[2])*dx[2]^2) - sin(x[2])*d2x[2]) -
 4*sin(x[2])*dx[2]*d3x[1] + 4*dx[1]*(sin(x[2])*dx[2]^3 - 3*cos(x[2])*dx[2]*d2x[2] - sin(x[2])*d3x[2]) + cos(x[2])*d4x[1] + (-M + x[1])*(cos(x[2])*dx[2]^4 +
 6*sin(x[2])*dx[2]^2*d2x[2] - 3*cos(x[2])*d2x[2]^2 - 4*cos(x[2])*dx[2]*d3x[2] - sin(x[2])*d4x[2])
 
-dzH5(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, M::Float64) = 10*(-(cos(x[2])*dx[2]^2) -
+dzH5(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, M::Float64) = 10*(-(cos(x[2])*dx[2]^2) -
 sin(x[2])*d2x[2])*d3x[1] + 10*d2x[1]*(sin(x[2])*dx[2]^3 - 3*cos(x[2])*dx[2]*d2x[2] - sin(x[2])*d3x[2]) - 5*sin(x[2])*dx[2]*d4x[1] + 5*dx[1]*(cos(x[2])*dx[2]^4 +
 6*sin(x[2])*dx[2]^2*d2x[2] - 3*cos(x[2])*d2x[2]^2 - 4*cos(x[2])*dx[2]*d3x[2] - sin(x[2])*d4x[2]) + cos(x[2])*d5x[1] + (-M + x[1])*(-(sin(x[2])*dx[2]^5) +
 10*cos(x[2])*dx[2]^3*d2x[2] + 15*sin(x[2])*dx[2]*d2x[2]^2 + 10*sin(x[2])*dx[2]^2*d3x[2] - 10*cos(x[2])*d2x[2]*d3x[2] - 5*cos(x[2])*dx[2]*d4x[2] - sin(x[2])*d5x[2])
 
-dzH6(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, M::Float64) = 20*d3x[1]*
+dzH6(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, M::Float64) = 20*d3x[1]*
 (sin(x[2])*dx[2]^3 - 3*cos(x[2])*dx[2]*d2x[2] - sin(x[2])*d3x[2]) + 15*(-(cos(x[2])*dx[2]^2) - sin(x[2])*d2x[2])*d4x[1] + 15*d2x[1]*(cos(x[2])*dx[2]^4 +
 6*sin(x[2])*dx[2]^2*d2x[2] - 3*cos(x[2])*d2x[2]^2 - 4*cos(x[2])*dx[2]*d3x[2] - sin(x[2])*d4x[2]) - 6*sin(x[2])*dx[2]*d5x[1] + 6*dx[1]*(-(sin(x[2])*dx[2]^5) +
 10*cos(x[2])*dx[2]^3*d2x[2] + 15*sin(x[2])*dx[2]*d2x[2]^2 + 10*sin(x[2])*dx[2]^2*d3x[2] - 10*cos(x[2])*d2x[2]*d3x[2] - 5*cos(x[2])*dx[2]*d4x[2] - sin(x[2])*d5x[2]) +
 cos(x[2])*d6x[1] + (-M + x[1])*(-(cos(x[2])*dx[2]^6) - 15*sin(x[2])*dx[2]^4*d2x[2] + 45*cos(x[2])*dx[2]^2*d2x[2]^2 + 15*sin(x[2])*d2x[2]^3 + 20*cos(x[2])*dx[2]^3*d3x[2] +
 60*sin(x[2])*dx[2]*d2x[2]*d3x[2] - 10*cos(x[2])*d3x[2]^2 + 15*sin(x[2])*dx[2]^2*d4x[2] - 15*cos(x[2])*d2x[2]*d4x[2] - 6*cos(x[2])*dx[2]*d5x[2] - sin(x[2])*d6x[2])
 
-dzH7(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64}, M::Float64) = 35*(sin(x[2])*dx[2]^3 - 3*cos(x[2])*dx[2]*d2x[2] - sin(x[2])*d3x[2])*d4x[1] + 35*d3x[1]*(cos(x[2])*dx[2]^4 + 6*sin(x[2])*dx[2]^2*d2x[2] - 3*cos(x[2])*d2x[2]^2 -
+dzH7(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64}, M::Float64) = 35*(sin(x[2])*dx[2]^3 - 3*cos(x[2])*dx[2]*d2x[2] - sin(x[2])*d3x[2])*d4x[1] + 35*d3x[1]*(cos(x[2])*dx[2]^4 + 6*sin(x[2])*dx[2]^2*d2x[2] - 3*cos(x[2])*d2x[2]^2 -
 4*cos(x[2])*dx[2]*d3x[2] - sin(x[2])*d4x[2]) + 21*(-(cos(x[2])*dx[2]^2) - sin(x[2])*d2x[2])*d5x[1] + 21*d2x[1]*(-(sin(x[2])*dx[2]^5) + 10*cos(x[2])*dx[2]^3*d2x[2] +
 15*sin(x[2])*dx[2]*d2x[2]^2 + 10*sin(x[2])*dx[2]^2*d3x[2] - 10*cos(x[2])*d2x[2]*d3x[2] - 5*cos(x[2])*dx[2]*d4x[2] - sin(x[2])*d5x[2]) - 7*sin(x[2])*dx[2]*d6x[1] +
 7*dx[1]*(-(cos(x[2])*dx[2]^6) - 15*sin(x[2])*dx[2]^4*d2x[2] + 45*cos(x[2])*dx[2]^2*d2x[2]^2 + 15*sin(x[2])*d2x[2]^3 + 20*cos(x[2])*dx[2]^3*d3x[2] +
@@ -479,7 +479,7 @@ cos(x[2])*d7x[1] + (-M + x[1])*(sin(x[2])*dx[2]^7 - 21*cos(x[2])*dx[2]^5*d2x[2] 
 35*sin(x[2])*dx[2]^4*d3x[2] + 210*cos(x[2])*dx[2]^2*d2x[2]*d3x[2] + 105*sin(x[2])*d2x[2]^2*d3x[2] + 70*sin(x[2])*dx[2]*d3x[2]^2 + 35*cos(x[2])*dx[2]^3*d4x[2] +
 105*sin(x[2])*dx[2]*d2x[2]*d4x[2] - 35*cos(x[2])*d3x[2]*d4x[2] + 21*sin(x[2])*dx[2]^2*d5x[2] - 21*cos(x[2])*d2x[2]*d5x[2] - 7*cos(x[2])*dx[2]*d6x[2] - sin(x[2])*d7x[2])
 
-dzH8(x::Vector{Float64}, dx::Vector{Float64}, d2x::Vector{Float64}, d3x::Vector{Float64}, d4x::Vector{Float64}, d5x::Vector{Float64}, d6x::Vector{Float64}, d7x::Vector{Float64}, d8x::Vector{Float64}, M::Float64) = 70*d4x[1]*(cos(x[2])*dx[2]^4 + 6*sin(x[2])*dx[2]^2*d2x[2] - 3*cos(x[2])*d2x[2]^2 - 4*cos(x[2])*dx[2]*d3x[2] - sin(x[2])*d4x[2]) +
+dzH8(x::AbstractVector{Float64}, dx::AbstractVector{Float64}, d2x::AbstractVector{Float64}, d3x::AbstractVector{Float64}, d4x::AbstractVector{Float64}, d5x::AbstractVector{Float64}, d6x::AbstractVector{Float64}, d7x::AbstractVector{Float64}, d8x::AbstractVector{Float64}, M::Float64) = 70*d4x[1]*(cos(x[2])*dx[2]^4 + 6*sin(x[2])*dx[2]^2*d2x[2] - 3*cos(x[2])*d2x[2]^2 - 4*cos(x[2])*dx[2]*d3x[2] - sin(x[2])*d4x[2]) +
 56*(sin(x[2])*dx[2]^3 - 3*cos(x[2])*dx[2]*d2x[2] - sin(x[2])*d3x[2])*d5x[1] + 56*d3x[1]*(-(sin(x[2])*dx[2]^5) + 10*cos(x[2])*dx[2]^3*d2x[2] + 15*sin(x[2])*dx[2]*d2x[2]^2 +
 10*sin(x[2])*dx[2]^2*d3x[2] - 10*cos(x[2])*d2x[2]*d3x[2] - 5*cos(x[2])*dx[2]*d4x[2] - sin(x[2])*d5x[2]) + 28*(-(cos(x[2])*dx[2]^2) - sin(x[2])*d2x[2])*d6x[1] +
 28*d2x[1]*(-(cos(x[2])*dx[2]^6) - 15*sin(x[2])*dx[2]^4*d2x[2] + 45*cos(x[2])*dx[2]^2*d2x[2]^2 + 15*sin(x[2])*d2x[2]^3 + 20*cos(x[2])*dx[2]^3*d3x[2] +
@@ -493,9 +493,9 @@ cos(x[2])*d8x[1] + (-M + x[1])*(cos(x[2])*dx[2]^8 + 28*sin(x[2])*dx[2]^6*d2x[2] 
 56*cos(x[2])*dx[2]^3*d5x[2] + 168*sin(x[2])*dx[2]*d2x[2]*d5x[2] - 56*cos(x[2])*d3x[2]*d5x[2] + 28*sin(x[2])*dx[2]^2*d6x[2] - 28*cos(x[2])*d2x[2]*d6x[2] -
 8*cos(x[2])*dx[2]*d7x[2] - sin(x[2])*d8x[2])
 
-function compute_harmonic_derivs!(xBL::Vector{Float64}, dxBL::Vector{Float64}, d2xBL::Vector{Float64}, d3xBL::Vector{Float64}, d4xBL::Vector{Float64},
-    d5xBL::Vector{Float64}, d6xBL::Vector{Float64}, d7xBL::Vector{Float64}, d8xBL::Vector{Float64}, xH::Vector{Float64}, dxH::Vector{Float64}, d2xH::Vector{Float64}, d3xH::Vector{Float64}, d4xH::Vector{Float64},
-    d5xH::Vector{Float64}, d6xH::Vector{Float64}, d7xH::Vector{Float64}, d8xH::Vector{Float64}, a::Float64, M::Float64)
+function compute_harmonic_derivs!(xBL::AbstractVector{Float64}, dxBL::AbstractVector{Float64}, d2xBL::AbstractVector{Float64}, d3xBL::AbstractVector{Float64}, d4xBL::AbstractVector{Float64},
+    d5xBL::AbstractVector{Float64}, d6xBL::AbstractVector{Float64}, d7xBL::AbstractVector{Float64}, d8xBL::AbstractVector{Float64}, xH::AbstractVector{Float64}, dxH::AbstractVector{Float64}, d2xH::AbstractVector{Float64}, d3xH::AbstractVector{Float64}, d4xH::AbstractVector{Float64},
+    d5xH::AbstractVector{Float64}, d6xH::AbstractVector{Float64}, d7xH::AbstractVector{Float64}, d8xH::AbstractVector{Float64}, a::Float64, M::Float64)
 
     # inner and outer horizon
     rminus = M - sqrt(M^2 - a^2)
