@@ -12,7 +12,7 @@ Julia code which computes gravitational waveforms of extreme-mass-ratio inspiral
  
 * **Executive summary of the Chimera:** the equations used to approximate the self-force in the Chimera are schematically derived as follows. First, the metric in the far-field region is expanded into a sum of time-symmetric and time-asymmetric potentials using a multipolar post-Minkowskian expansion. The expressions used to evaluate these radiation reaction (RR) potentials are obtained via post-Newtonian expansions in the near-zone of the source. The expanded metric is then resummed in terms of the Kerr metric and metric perturbations thereof, with the latter being identified with the radiaction reaction potentials. The metric perturbations, expressed in terms of the RR potentials, are then substituted into the MiSaTaQuWa equation from black hole perturbation theory to obtain local, non-adiabatic expressions for the components of the self-force. In its current formulation, the Chimera does not take into account the conservative part of the self-force. We refer the reader to Ref. [2] and the references therein for further detail.
 
-* **Numerical Implementation:** see the example notebook <em>InspiralExamples.ipynb</em> for detail on our numerical implementation.
+* **Numerical Implementation:** see the example notebook <em>InspiralExamples.ipynb</em> for details on our numerical implementation.
 
 ## Dependencies ##
 
@@ -26,7 +26,7 @@ All the dependencies are located in the <em>dependencies.jl</em> file. Simply ru
 ## Authors ##
 
 - Lennox Keeble
-- Alejandro Cardenas-Avendano
+- [Alejandro Cardenas-Avendano](https://alejandroc137.bitbucket.io)
 
 Last updated: 10.06.2024
 
