@@ -1,47 +1,43 @@
 # GRSuite
-A collection of code written in Julia which numerically computes various objects of interest in GR, including geodesics, extreme-mass-ratio inspirals, and gravitational waveforms.
+Julia code which computes gravitational waveforms of extreme-mass-ratio inspirals (EMRIs) based on the "Chimera": a local kludge scheme introduced in <a href="https://arxiv.org/abs/1109.0572">Sopuerta & Yunes, 2011</a> (hereafter Ref. [2]). See the example notebook <em>InspiralExamples.ipynb</em> for code which computes EMRIs based on the Chimera, and <em>GeodesicExamples.ipynb</em> for code which computes timelike Kerr geodesics and their associated constants of motion. Below we provide more detail about the contents of this package.
 
 ## Components ##
 
-* **Geodesics**: code which numerically solves the geodesic equation in Kerr can be found in the <em>Kerr.jl</em> file, while code for computing geodesics in more general axisymmetric and stationary spacetimes can be found in <em>NumericalGeodesics.jl</em>. Code for solving the separated Hamilton-Jacobi geodesic equations in both Boyer-Lindquist (BL) time and Mino time can be found in <em>HamiltonJacobiEvolution.jl</em> and <em>MinoTimeEvolution.jl</em>, respecitvely.
+* **Geodesics:** example code which numerically solves the first-order Hamilton-Jacobi equations governing timelike geodesic motion in Kerr can be found in the <em>GeodesicExamples.ipynb</em> notebook. Conversions between orbital parameterizations $(E, L_{z}, Q)$ and $(p, e, θ_\text{min})$ based on the methods in Refs. [1-4] can also be found in this example notebook.
 
-* **Constants of motion**: mappings between the sets of parameters $\mathcal{I}=(E, L_{z}, Q)$ and $\mathcal{O}=(p, e, θ_\text{min})$ (in both directions) can be found in the  <em>Kerr.jl</em> file. In particular, we provide code which implements
-  * The method presented in Ref. [1] for the mapping $\mathcal{I}\to\mathcal{O}$, and computing the fundamental frequencies with respect to proper time and BL time from the parameters $\mathcal{I}$.
-  * The method presented in Ref. [3] for the mappings $\mathcal{I}\leftrightarrow\mathcal{O}$, and computing the fundamental frequencies with respect to Mino time and BL time from the parameters $\mathcal{I}$. Note that their method for computing the fundamental frequencies is essentially the same as that in Ref. [4].
-  * The method presented in Ref. [5] for the mapping $\mathcal{O}\to\mathcal{I}$.
+* **Gravitational Waveforms:** the main goal of this package is to efficiently implement the Chimera kludge scheme introduced in Ref. [2] for generating gravitational waveforms of EMRIs based on a local, non-adiabatic approximation of the gravitational self-force. The Chimera employs the method of osculating orbits to construct the overall EMRI trajectory from several piecewise geodesics. At the end of each geodesic, the self-force is computed using expressions in Ref. [2], after which the constants of motion are updated and the next piecewise geodesic is evolved. We provide example code in <em>InspiralExamples.ipynb</em> which computes the constants of motions and gravitational waveform of an EMRI evolved using the Chimera. See below for futher remarks on our implementation, as well as a brief summary of the approach taken to derive the equations behind the Chimera.
 
-* **Numerical Kludge gravitational waveforms** the file <em>KludgeWaveforms.jl</em> contains code which computes the gravitational waveform for a particle on a bound orbit around a Kerr black hole, i.e., ignoring radiation-reaction effects, using the method described in Ref. [2]. We also provide code which computes these semi-relativistic waveforms for more general axisymmetric and stationary spacetimes.
+## Important Remarks ##
+* **Efficiency:** we have not focused on fully optimizing the efficiency of our code, and, as such, there is room to improve the typical runtime of the Chimera. Nonetheless, Julia's multi-threading capabilities has allowed for a significant increase in the speed of the Chimera compared to the original implementation by the authors in Ref. [2]. In particular, we expect that a year long inspiral can be evolved in ~10 hours using this code. The local nature of the Chimera makes it markedly more expensive than, for example, EMRIs evolved using adiabatic fluxes---<b>we don't expect a fully optimized version of our code to be anywhere close in speed to such models</b>. The computational expense of the Chimera essentially boils down to the combination of the following two things: (1) the self-force expressions contain several high-order time derivatives which we approximate using computationally expensive fitting techniques, making a single computation of fluxes much more expensive than evaluating closed-form expressions analytically; (2) the local nature of the Chimera requires one to compute these fluxes several times per orbit.
+ 
+* **Executive summary of the Chimera:** the equations used to approximate the self-force in the Chimera are schematically derived as follows. First, the metric in the far-field region is expanded into a sum of time-symmetric and time-asymmetric potentials using a multipolar post-Minkowskian expansion. The expressions used to evaluate these radiation reaction (RR) potentials are obtained via post-Newtonian expansions in the near-zone of the source. The expanded metric is then resummed in terms of the Kerr metric and metric perturbations thereof, with the latter being identified with the radiaction reaction potentials. The metric perturbations, expressed in terms of the RR potentials, are then substituted into the MiSaTaQuWa equation from black hole perturbation theory to obtain local, non-adiabatic expressions for the components of the self-force. In its current formulation, the Chimera does not take into account the conservative part of the self-force. We refer the reader to Ref. [2] and the references therein for further detail.
 
-* **EMRIs**: the file <em>SelfForce.jl</em> contains code which computes a fully-relativistic inspiral based on the model described in detail in Ref. [3], which treats the self-force locally and non-adiabtically. In this approach, one makes use of the method of osculating orbits, wherein one utilizes the fact that the radiation-reaction time scale is much larger than the orbital timescale. This allows one to treat the EMRI trajectory as comprised of many "small" piecewise geodesics which are tangent to the EMRI trajectory at different points. One then moves between successive geodesics by (locally) computing the self-force at the end of the previous one, using this to update the values of the contstans $\mathcal{I}$ and $\mathcal{O}$, and then computing the next geodesic with these updated parameters. See the [examples notebook](https://nbviewer.org/github/lennoxkeeble/GRSuite/blob/6c0c070008a084d7500e7a9d2885133c450c65fb/execution/inspiral_examples.ipynb) for code which compute EMRIs based on this method in addition to plotting the evolution of the constants of motion and the gravitational waveform.
-
-* **Plotting**: the file <em>GRPlotLib.jl</em> contains useful code for making plots of trajectories, waveforms, and the effective potential. The functions are not at all robust, but serve to provide a starting point for some basic plots to interpret the solutions generated by the other modules in this package.  
+* **Numerical Implementation:** see the example notebook <em>InspiralExamples.ipynb</em> for detail on our numerical implementation.
 
 ## Dependencies ##
 
-All the dependencies are located in the <em>dependencies.jl</em> file. Simply run <code> include("dependencies.jl")</code> to install all the necessary packages
+All the dependencies are located in the <em>dependencies.jl</em> file. Simply run <code>include("dependencies.jl")</code> to install all the necessary packages.
 
 ## Limitations and known possible performance issues ##
 
-* This code has only been tested on Mac OS.
-* The main bottleneck in the runtime of this code is fitting the multipole moments, which are used to compute the self-force, to their fourier series expansion in either Mino time or BL time in order to reliably take high-order derivatives by differentiating the analytic expression of the fourier series (see Ref. [3] for futher detail). We also provide code which takes these derivatives numerically in Mino time, offering a significant (~20x) speedup in comparison to carrying out least-squares fits. In our limited testing so far, computing the inspiral using numerical differentiation in Mino time appears to be at least as accurate as with the fits, though tests for more points in the parameter space are to be carried out.
-
+* This code is in its early stages. In particular, we are yet to carry out convergence tests on the generated waveforms and constants of motion.
+* This code has only been tested on a 2 GHz Quad-Core Intel Core i5 Macbook Pro.
+  
 ## Authors ##
 
 - Lennox Keeble
 - Alejandro Cardenas-Avendano
 
-Last updated: 05.23.2024
+Last updated: 10.06.2024
 
 ## References ##
 [1] Schmidt, W. Celestial mechanics in Kerr spacetime. [arXiv:gr-qc/0202090](https://arxiv.org/abs/gr-qc/0202090)
 
-[2] Babak, S., et al. "Kludge" gravitational waveforms for a test-body orbiting a Kerr black hole. [arXiv:gr-qc/0607007v2](https://arxiv.org/abs/gr-qc/0607007v2)
+[2] Sopuerta, C., & Yunes, N. New Kludge Scheme for the Construction of Approximate Waveforms for Extreme-Mass-Ratio Inspirals. [arXiv:1109.0572](https://arxiv.org/abs/1109.0572)
 
-[3] Sopuerta, C., & Yunes, N. New Kludge Scheme for the Construction of Approximate Waveforms for Extreme-Mass-Ratio Inspirals. [arXiv:1109.0572](https://arxiv.org/abs/1109.0572)
+[3] Fujita, R., & Hikida, W. Analytical solutions of bound timelike geodesic orbits in Kerr spacetime. [arXiv:0906.1420v2](https://arxiv.org/abs/0906.1420)
 
-[4] Fujita, R., & Hikida, W. Analytical solutions of bound timelike geodesic orbits in Kerr spacetime. [arXiv:0906.1420v2](https://arxiv.org/abs/0906.1420)
-
-[5] Hughes, S. A. Parameterizing black hole orbits for adiabatic inspiral. [arXiv:2401.09577v2](https://arxiv.org/abs/2401.09577)
+[4] Hughes, S. A. Parameterizing black hole orbits for adiabatic inspiral. [arXiv:2401.09577v2](https://arxiv.org/abs/2401.09577)
 
 ## MIT License
 
