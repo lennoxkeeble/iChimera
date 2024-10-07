@@ -85,8 +85,19 @@ rplus = Kerr.KerrMetric.rplus(a); rminus = Kerr.KerrMetric.rminus(a);
 # BL time frequencies
 Ω = ω[1:3]/ω[4]; Ωr, Ωθ, Ωϕ = Ω;
 
-compute_fluxes_BL = e!=0.0 ? compute_SF_frac * minimum(@. 2π /Ω) : compute_SF_frac * minimum(@. 2π /Ω[2:3]);   # in units of M (not seconds)
-compute_fluxes_Mino = e!= 0.0 ? compute_SF_frac * minimum(@. 2π /ω[1:3]) : compute_SF_frac * minimum(@. 2π /ω[2:3]);   # in units of M (not seconds)
+# generic case
+if e != 0 && inclination !=0
+    compute_fluxes_BL = compute_SF_frac * minimum(@. 2π /Ω);         # in units of M (not seconds)
+    compute_fluxes_Mino = compute_SF_frac * minimum(@. 2π /ω[1:3])   # in units of M (not seconds)
+# eccentric equatorial
+elseif e != 0
+    compute_fluxes_BL = compute_SF_frac * minimum(@. 2π /[Ω[1], Ω[3]])
+    compute_fluxes_Mino = compute_SF_frac * minimum(@. 2π /[ω[1], ω[3]])
+# circular inclined
+elseif inclination != 0
+    compute_fluxes_BL = compute_SF_frac * minimum(@. 2π /Ω[2:3])
+    compute_fluxes_Mino = compute_SF_frac * minimum(@. 2π /ω[2:3])
+end
 
 ### number of points per geodesic in the FDM approach ###
 nPointsFDM = Int(floor(compute_fluxes_Mino / h));
