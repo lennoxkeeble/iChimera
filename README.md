@@ -1,4 +1,6 @@
 # iChimera
+[Code in constant development]
+
 Julia code which computes gravitational waveforms of extreme-mass-ratio inspirals (EMRIs) based on the "Chimera": a local kludge scheme introduced in <a href="https://arxiv.org/abs/1109.0572">Sopuerta & Yunes, 2011</a> (hereafter Ref. [2]). See the example notebook <em>InspiralExamples.ipynb</em> for code which computes EMRIs based on the Chimera, and <em>GeodesicExamples.ipynb</em> for code which computes timelike Kerr geodesics and their associated constants of motion. Below we provide more detail about the contents of this package.
 
 ## Components ##
