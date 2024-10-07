@@ -1,2 +1,0 @@
-@time InspiralEvolution.FourierFit.MinoTime.compute_inspiral_HJE!(t_max_M, compute_fluxes_Mino, t_range_factor_Mino_FF, nPointsGeodesic, nPointsFit, MBH_geometric_mass, SCO_geometric_mass,
-a, p, e, θmin, "Julia", Γαμν, g_μν, g_tt, g_tϕ, g_rr, g_θθ, g_ϕϕ, gTT, gTΦ, gRR, gThTh, gΦΦ, nHarm, kerrReltol, kerrAbstol; data_path=data_path)
