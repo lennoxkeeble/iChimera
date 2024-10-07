@@ -1,0 +1,2 @@
+# inspiral evolved in Mino time and using finite differences to compute all the required time derivatives of the multipole moments needed for self-force computation and waveform generation.
+@time ChimeraInspiral.FiniteDifferences.MinoTime.compute_inspiral(a, p, e, θmin, sign_Lz, q, psi0, chi0, phi0, h, compute_fluxes_Mino, t_max_M, reltol, abstol; data_path=data_path)

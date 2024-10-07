@@ -1,4 +1,11 @@
-module FiniteDiff_4
+#=
+
+    In this module we implement finite difference formulae of order 4 and 5 to numerically compute the derivatives up to the eight order of a time series with constant time step h. In practice, we only make use of the Order 5 formulae up to the sixth 
+    derivative.
+
+=#
+
+module FiniteDiffOrder4
 
 # given an array length and an index, this function returns the node of the index
 function compute_node(index::Int64, array_len::Int64, node_max::Int64)
@@ -156,7 +163,7 @@ end
 
 end
 
-module FiniteDiff_5
+module FiniteDiffOrder5
 
 # given an array length and an index, this function returns the node of the index
 function compute_node(index::Int64, array_len::Int64, node_max::Int64)

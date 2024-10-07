@@ -1,0 +1,2 @@
+# inspiral evolved in BL coordinate time and using GSL's multilinear fit to fit the multipole moments to their Fourier series expansion in order to estimate their high order time derivatives.
+@time ChimeraInspiral.FourierFit.BLTime.compute_inspiral(a, p, e, θmin, sign_Lz, q, psi0, chi0, phi0, nPointsGeodesic, nPointsFitGSL, nHarmGSL, t_range_factor_BL, compute_fluxes_BL, t_max_M, gsl_fit, reltol, abstol; data_path=data_path)
